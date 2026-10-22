@@ -4,6 +4,7 @@
 #include "core/Log.h"
 
 #include <cstdio>
+#include <exception>
 #include <string>
 
 int main(int argc, char** argv) {
@@ -26,8 +27,17 @@ int main(int argc, char** argv) {
     FR_INFO(" Frontier Engine 0.1.0 - procedural outdoor sandbox");
     FR_INFO("==============================================================");
 
-    frontier::core::Engine engine;
-    const int exitCode = engine.Run(config);
+    int exitCode = 1;
+    try {
+        frontier::core::Engine engine;
+        exitCode = engine.Run(config);
+    } catch (const std::exception& error) {
+        FR_ERROR("Unhandled exception: %s", error.what());
+        exitCode = 4;
+    } catch (...) {
+        FR_ERROR("Unhandled non-standard exception.");
+        exitCode = 4;
+    }
 
     FR_INFO("Exit code: %d", exitCode);
     frontier::core::Log::Shutdown();

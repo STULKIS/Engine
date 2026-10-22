@@ -76,6 +76,14 @@ bool Window::Create(const std::string& title, int width, int height, bool fullsc
     if (!m_context) {
         FR_ERROR("SDL_GL_CreateContext failed: %s", SDL_GetError());
         FR_ERROR("Frontier Engine requires an OpenGL 4.5 core profile context.");
+        const char* driver = SDL_GetCurrentVideoDriver();
+        FR_ERROR("SDL video driver in use: %s", driver ? driver : "unknown");
+        FR_ERROR("Things to check:");
+        FR_ERROR("  1. Update the GPU driver (NVIDIA / AMD / Intel), then reboot.");
+        FR_ERROR("  2. Remote desktop sessions often expose no OpenGL 4.5; run locally.");
+        FR_ERROR("  3. On laptops, force the discrete GPU for this executable.");
+        FR_ERROR("  4. Do not force an old GL version through driver profiles or");
+        FR_ERROR("     MESA_GL_VERSION_OVERRIDE/__GL_* environment variables.");
         return false;
     }
 
@@ -86,6 +94,17 @@ bool Window::Create(const std::string& title, int width, int height, bool fullsc
 
     SDL_GL_SetSwapInterval(vsync ? 1 : 0);
     RefreshDrawableSize();
+
+    // Report what the driver actually handed us (it may be newer than the
+    // requested 4.5 core, or a compatibility profile).
+    int contextMajor = 0;
+    int contextMinor = 0;
+    int profileMask = 0;
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &contextMajor);
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &contextMinor);
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &profileMask);
+    FR_INFO("GL context: %d.%d %s", contextMajor, contextMinor,
+            (profileMask & SDL_GL_CONTEXT_PROFILE_CORE) ? "core" : "compatibility");
 
     FR_INFO("Window created: %s (%dx%d, %s, vsync=%s)",
             title.c_str(), m_width, m_height,

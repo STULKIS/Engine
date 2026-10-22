@@ -252,8 +252,11 @@ void PrintUsage(const char* exe) {
         "  --assets=<path>        Asset directory containing shaders/ (default assets)\n"
         "  --log-level=<level>    trace|debug|info|warn|error (default info)\n"
         "  --log-file=<path>      Tee log output to a file (default frontier.log)\n"
+        "  --render-scale=<f>     Internal 3D resolution scale, 0.25..2 (default 1)\n"
         "  --no-hdr               Disable the HDR scene target\n"
         "  --no-bloom             Disable bloom\n"
+        "  --safe-mode            Low-end preset: no MSAA/HDR/bloom, 1024 shadow map,\n"
+        "                         reduced grass and 0.85 render scale\n"
         "  --wireframe            Start in wireframe debug mode\n"
         "  --headless[=frames]    Render without a window (smoke test)\n"
         "  --demo-ui              Open the ImGui style demo on start\n"
@@ -328,6 +331,17 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "render-scale") { ApplySetting(config, "render.renderscale", inferredValue(), value); continue; }
         if (key == "no-hdr") { ApplySetting(config, "render.hdr", "false", value); continue; }
         if (key == "no-bloom") { ApplySetting(config, "render.bloom", "false", value); continue; }
+        if (key == "safe-mode" || key == "safe") {
+            ApplySetting(config, "render.msaasamples", "1", value);
+            ApplySetting(config, "render.hdr", "false", value);
+            ApplySetting(config, "render.bloom", "false", value);
+            ApplySetting(config, "render.shadowmapsize", "1024", value);
+            ApplySetting(config, "render.renderscale", "0.85", value);
+            ApplySetting(config, "world.grasscount", "25000", value);
+            ApplySetting(config, "world.treecount", "600", value);
+            FR_INFO("Safe mode enabled: no MSAA/HDR/bloom, 1024 shadow map, lighter world.");
+            continue;
+        }
         if (key == "no-fog") { ApplySetting(config, "render.fogdensity", "0", value); continue; }
         if (key == "wireframe") { ApplySetting(config, "render.wireframe", inferredValue(), value); continue; }
         if (key == "headless") {

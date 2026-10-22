@@ -1,0 +1,67 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux (GCC, system SDL2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Headless smoke test
+        run: ./build/frontier --headless=60
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontier-linux-x64
+          path: |
+            build/frontier
+            build/assets
+          if-no-files-found: error
+
+  windows:
+    name: Windows (MSVC, fetched SDL2)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DFRONTIER_FETCH_SDL2=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Headless smoke test
+        run: .\build\Release\frontier.exe --headless=60
+
+      - name: Stage a self-contained folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item build\Release\frontier.exe dist\
+          if (Test-Path build\Release\SDL2.dll) { Copy-Item build\Release\SDL2.dll dist\ }
+          Copy-Item build\Release\assets dist\assets -Recurse
+          Get-ChildItem dist
+
+      - name: Upload runnable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontier-windows-x64
+          path: dist
+          if-no-files-found: error

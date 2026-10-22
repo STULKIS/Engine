@@ -55,6 +55,75 @@ std::string ResolveAssetDirectory(const std::string& requested) {
     return requested;
 }
 
+// Parses the "major.minor" prefix of a GL version string.
+bool ParseVersion(const char* text, int& major, int& minor) {
+    if (!text || !text[0]) {
+        return false;
+    }
+    return std::sscanf(text, "%d.%d", &major, &minor) == 2;
+}
+
+// Inspects the current GL context and refuses to start on drivers that cannot
+// run the engine. Logs the renderer/version so bug reports are actionable.
+bool ValidateGLContext() {
+    const char* versionString = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+    const char* shadingLanguage = reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION));
+    const char* rendererString = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+    const char* vendorString = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+
+    int major = 0;
+    int minor = 0;
+    const bool versionParsed = ParseVersion(versionString, major, minor);
+    int glslMajor = 0;
+    int glslMinor = 0;
+    ParseVersion(shadingLanguage, glslMajor, glslMinor);
+
+    GLint profileMask = 0;
+    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profileMask);
+    const bool coreProfile = (profileMask & GL_CONTEXT_CORE_PROFILE_BIT) != 0;
+
+    GLint maxSamples = 0;
+    GLint maxTextureSize = 0;
+    GLint maxColorAttachments = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAttachments);
+
+    FR_INFO("GL version:   %s", versionString ? versionString : "unknown");
+    FR_INFO("GLSL version: %s", shadingLanguage ? shadingLanguage : "unknown");
+    FR_INFO("GL vendor:    %s", vendorString ? vendorString : "unknown");
+    FR_INFO("GL renderer:  %s", rendererString ? rendererString : "unknown");
+    FR_INFO("GL profile:   %s, max samples %d, max texture %d, colour attachments %d",
+            coreProfile ? "core" : "compatibility", maxSamples, maxTextureSize, maxColorAttachments);
+
+    const std::string rendererName = rendererString ? rendererString : "";
+    if (rendererName.find("llvmpipe") != std::string::npos || rendererName.find("softpipe") != std::string::npos ||
+        rendererName.find("SwiftShader") != std::string::npos) {
+        FR_WARN("Software rasterizer detected; expect low frame rates. Lower --render-scale and view distance.");
+    }
+
+    if (!versionParsed) {
+        FR_WARN("Could not parse the OpenGL version string; continuing anyway.");
+        return true;
+    }
+    if (major < 4 || (major == 4 && minor < 5)) {
+        FR_ERROR("Frontier Engine needs OpenGL 4.5 core; the driver only provides %d.%d.", major, minor);
+        FR_ERROR("Update the GPU driver (NVIDIA/AMD/Intel) and try again.");
+        FR_ERROR("On Mesa/llvmpipe you can force a higher reported version with");
+        FR_ERROR("  MESA_GL_VERSION_OVERRIDE=4.5 MESA_GLSL_VERSION_OVERRIDE=450 ./frontier");
+        FR_ERROR("(that only works if the driver actually implements the features).");
+        return false;
+    }
+    if (glslMajor > 0 && (glslMajor < 4 || (glslMajor == 4 && glslMinor < 50))) {
+        FR_ERROR("Frontier Engine shaders need GLSL 4.50, but the driver reports %d.%02d.", glslMajor, glslMinor);
+        return false;
+    }
+    if (!coreProfile) {
+        FR_WARN("A compatibility profile was created instead of a core profile; this usually still works.");
+    }
+    return true;
+}
+
 std::string TimestampString() {
     const auto now = std::chrono::system_clock::now();
     const std::time_t time = std::chrono::system_clock::to_time_t(now);
@@ -172,13 +241,10 @@ bool Engine::Initialize(AppConfig& config) {
         FR_ERROR("Failed to resolve OpenGL entry points.");
         return false;
     }
-    const GLubyte* glVersion = render::gl::glGetString(GL_VERSION);
-    const GLubyte* glRenderer = render::gl::glGetString(GL_RENDERER);
-    const GLubyte* glVendor = render::gl::glGetString(GL_VENDOR);
-    FR_INFO("OpenGL: %s", glVersion ? reinterpret_cast<const char*>(glVersion) : "unknown");
-    FR_INFO("Renderer: %s (%s)",
-            glRenderer ? reinterpret_cast<const char*>(glRenderer) : "unknown",
-            glVendor ? reinterpret_cast<const char*>(glVendor) : "unknown");
+    if (!ValidateGLContext()) {
+        FR_ERROR("The OpenGL context is not usable by this engine.");
+        return false;
+    }
 
     m_renderer = std::make_unique<render::Renderer>();
     if (!m_renderer->Initialize(config.render, config.assetsDir)) {

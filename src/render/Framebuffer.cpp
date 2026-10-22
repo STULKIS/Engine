@@ -165,14 +165,27 @@ ShadowMap::~ShadowMap() {
 
 bool ShadowMap::Create(int size) {
     Destroy();
-    m_size = std::clamp(size, 256, 8192);
+
+    // Never ask for more than the driver can allocate.
+    GLint maxTextureSize = 8192;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    m_size = std::clamp(size, 256, std::max(256, std::min(8192, static_cast<int>(maxTextureSize))));
+    if (m_size != size) {
+        FR_WARN("Shadow map size %d clamped to %d (driver limit %d).", size, m_size, maxTextureSize);
+    }
 
     glGenTextures(1, &m_depthTexture);
     glBindTexture(GL_TEXTURE_2D, m_depthTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_size, m_size, 0,
                  GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // The shaders sample the depth texture as a regular sampler2D and compare
+    // manually for a 3x3 PCF kernel. A depth texture with compare mode NONE is
+    // only texture-complete with NEAREST filtering -- LINEAR would make the
+    // texture incomplete on strict drivers and sampling would return 0.0,
+    // which looks like "everything is in shadow".
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -203,13 +216,10 @@ void ShadowMap::Destroy() {
 }
 
 bool ShadowMap::Resize(int size) {
-    size = std::clamp(size, 256, 8192);
     if (size == m_size) {
         return true;
     }
-    const int requested = size;
-    Destroy();
-    return Create(requested);
+    return Create(size);
 }
 
 void ShadowMap::Bind() const {

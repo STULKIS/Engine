@@ -15,6 +15,7 @@ endif()
 
 option(FRONTIER_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(FRONTIER_USE_SYSTEM_GLM "Use a system GLM instead of the bundled headers" OFF)
+option(FRONTIER_FETCH_SDL2 "Download and build SDL2 automatically when it is not installed" OFF)
 
 # ---------------------------------------------------------------------------
 # Dependencies
@@ -50,6 +51,32 @@ if(NOT TARGET SDL2::SDL2 AND FRONTIER_SDL2_FOUND)
         INTERFACE_LINK_DIRECTORIES "${FRONTIER_SDL2_LIBRARY_DIRS}")
 endif()
 
+# Optional: fetch and build SDL2 from source. This is the easiest route on
+# Windows, where SDL2 is usually not installed system-wide.
+if(NOT TARGET SDL2::SDL2 AND FRONTIER_FETCH_SDL2)
+    include(FetchContent)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    # Overridable so the same build works behind a proxy, from a mirror, or
+    # from a local tarball (file:///...).
+    set(FRONTIER_SDL2_URL
+        "https://codeload.github.com/libsdl-org/SDL/tar.gz/refs/tags/release-2.28.5"
+        CACHE STRING "URL of the SDL2 source archive used by FRONTIER_FETCH_SDL2")
+    set(FRONTIER_SDL2_URL_HASH
+        "SHA256=9f0556e4a24ef5b267010038ad9e9948b62f236d5bcc4b22179f95ef62d84023"
+        CACHE STRING "Hash of FRONTIER_SDL2_URL (set to empty to skip verification)")
+    message(STATUS "SDL2 not found locally: fetching and building it from ${FRONTIER_SDL2_URL}")
+    if(POLICY CMP0135)
+        # Keep archive timestamps from deciding whether sources look stale.
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    FetchContent_Declare(SDL2
+        URL "${FRONTIER_SDL2_URL}"
+        URL_HASH "${FRONTIER_SDL2_URL_HASH}")
+    FetchContent_MakeAvailable(SDL2)
+endif()
+
 if(NOT TARGET SDL2::SDL2 AND TARGET SDL2::SDL2-static)
     add_library(SDL2::SDL2 INTERFACE IMPORTED)
     set_target_properties(SDL2::SDL2 PROPERTIES
@@ -62,7 +89,9 @@ if(NOT TARGET SDL2::SDL2)
         "SDL2 was not found.\n"
         "Install SDL2 development files (Debian/Ubuntu: sudo apt install libsdl2-dev,\n"
         "Fedora: sudo dnf install SDL2-devel, macOS: brew install sdl2) or configure with\n"
-        "  -DFRONTIER_SDL2_ROOT=/path/to/sdl2-install")
+        "  -DFRONTIER_SDL2_ROOT=/path/to/sdl2-install\n"
+        "or let CMake download and build SDL2 for you:\n"
+        "  cmake -S . -B build -DFRONTIER_FETCH_SDL2=ON")
 endif()
 
 # ---------------------------------------------------------------------------
@@ -135,6 +164,13 @@ endif()
 
 target_link_libraries(frontier PRIVATE frontier_imgui SDL2::SDL2)
 
+# SDL redefines main() to SDL_main() on Windows unless this is set. Frontier
+# uses a plain console main() entry point, so keep the standard entry point
+# instead of pulling in the SDL2main shim.
+if(WIN32)
+    target_compile_definitions(frontier PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # GL entry points are resolved through SDL_GL_GetProcAddress; on Linux the
 # dynamic loader still wants libdl for SDL's own dlsym usage.
 if(UNIX AND NOT APPLE)
@@ -142,7 +178,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 if(MSVC)
-    target_compile_options(frontier PRIVATE /W4 /permissive-)
+    target_compile_options(frontier PRIVATE /W4 /permissive- /utf-8)
     if(FRONTIER_WARNINGS_AS_ERRORS)
         target_compile_options(frontier PRIVATE /WX)
     endif()
@@ -161,6 +197,18 @@ add_custom_target(frontier_assets ALL
             "$<TARGET_FILE_DIR:frontier>/assets"
     DEPENDS frontier
     COMMENT "Copying shader assets next to the executable")
+
+# On Windows the SDL2 runtime DLL must sit next to the executable. Imported
+# shared targets know their own DLL location, so copy it after linking.
+if(WIN32 AND TARGET SDL2::SDL2)
+    get_target_property(FRONTIER_SDL2_TYPE SDL2::SDL2 TYPE)
+    if(FRONTIER_SDL2_TYPE STREQUAL "SHARED_LIBRARY")
+        add_custom_command(TARGET frontier POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "$<TARGET_FILE:SDL2::SDL2>" "$<TARGET_FILE_DIR:frontier>"
+            COMMENT "Copying the SDL2 runtime next to the executable")
+    endif()
+endif()
 
 # Optional: make the working directory of a debug launch the build directory.
 set_target_properties(frontier PROPERTIES

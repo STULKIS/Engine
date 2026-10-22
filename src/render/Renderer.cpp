@@ -41,9 +41,10 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
         return false;
     }
 
-    m_shadowMap.Create(config.shadowMapSize);
-    m_bloom.Create(m_windowWidth, m_windowHeight);
-    m_sceneTarget.Create(m_windowWidth, m_windowHeight, config.msaaSamples, config.hdr);
+    if (!CreateTargets(m_windowWidth, m_windowHeight)) {
+        FR_ERROR("Renderer initialization failed while creating render targets.");
+        return false;
+    }
 
     m_fullscreenTriangle.Create(geometry::MakeFullscreenTriangle());
 
@@ -82,8 +83,55 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
     gl::CheckErrors("renderer-init");
     m_ready = true;
     FR_INFO("Renderer initialized: %dx%d output, %d MSAA, %s.",
-            m_windowWidth, m_windowHeight, config.msaaSamples, config.hdr ? "HDR" : "LDR");
+            m_windowWidth, m_windowHeight, m_sceneTarget.Samples(), m_sceneTarget.Hdr() ? "HDR" : "LDR");
     return true;
+}
+
+bool Renderer::CreateTargets(int width, int height) {
+    const int sceneWidth = std::max(1, static_cast<int>(static_cast<float>(width) * m_config.renderScale));
+    const int sceneHeight = std::max(1, static_cast<int>(static_cast<float>(height) * m_config.renderScale));
+
+    m_sceneRequestSamples = m_config.msaaSamples;
+    m_sceneRequestHdr = m_config.hdr;
+    if (!RecreateSceneTarget(sceneWidth, sceneHeight)) {
+        return false;
+    }
+
+    if (!m_bloom.Create(sceneWidth, sceneHeight)) {
+        FR_WARN("Bloom target creation failed; bloom will be disabled for this run.");
+    }
+
+    m_shadowRequestedSize = m_config.shadowMapSize;
+    if (!m_shadowMap.Create(m_config.shadowMapSize)) {
+        FR_WARN("Shadow map creation failed; shadows will be disabled for this run.");
+    }
+    return true;
+}
+
+bool Renderer::RecreateSceneTarget(int width, int height) {
+    const int requestedSamples = std::max(1, m_config.msaaSamples);
+    const bool requestedHdr = m_config.hdr;
+
+    if (m_sceneTarget.Create(width, height, requestedSamples, requestedHdr)) {
+        return true;
+    }
+
+    // Drivers differ in which multisampled / floating point combinations they
+    // can render to. Degrade gracefully instead of ending up without a target.
+    FR_WARN("No %dx MSAA %s target at %dx%d; retrying without MSAA.", requestedSamples,
+            requestedHdr ? "HDR" : "LDR", width, height);
+    if (requestedSamples > 1 && m_sceneTarget.Create(width, height, 1, requestedHdr)) {
+        FR_WARN("Using a single-sample scene target (MSAA unavailable).");
+        return true;
+    }
+    if (requestedHdr) {
+        FR_WARN("Retrying with an 8-bit LDR scene target (bloom will be reduced).");
+        if (m_sceneTarget.Create(width, height, 1, false)) {
+            return true;
+        }
+    }
+    FR_ERROR("Could not create any scene render target at %dx%d.", width, height);
+    return false;
 }
 
 bool Renderer::LoadPrograms(const std::string& assetDirectory) {
@@ -169,20 +217,35 @@ void Renderer::UpdateTargets() {
     const int sceneWidth = std::max(1, static_cast<int>(static_cast<float>(m_windowWidth) * m_config.renderScale));
     const int sceneHeight = std::max(1, static_cast<int>(static_cast<float>(m_windowHeight) * m_config.renderScale));
 
-    const bool targetMismatch = m_sceneTarget.Valid() &&
-                                (m_sceneTarget.Samples() != m_config.msaaSamples);
-    const bool hdrMismatch = m_sceneTarget.Valid() && (m_sceneTarget.Hdr() != m_config.hdr);
-    if (!m_sceneTarget.Valid() || targetMismatch || hdrMismatch) {
-        m_sceneTarget.Create(sceneWidth, sceneHeight, m_config.msaaSamples, m_config.hdr);
-        m_bloom.Create(sceneWidth, sceneHeight);
-    } else {
-        m_sceneTarget.Resize(sceneWidth, sceneHeight);
-        m_bloom.Resize(sceneWidth, sceneHeight);
+    // Compare against the requested settings, not the effective ones: a driver
+    // may clamp the MSAA count, and comparing to the clamp would recreate the
+    // targets on every single frame.
+    const bool settingsChanged = m_sceneRequestSamples != m_config.msaaSamples ||
+                                 m_sceneRequestHdr != m_config.hdr;
+    const bool sizeChanged = !m_sceneTarget.Valid() || m_sceneTarget.Width() != sceneWidth ||
+                             m_sceneTarget.Height() != sceneHeight;
+    if (settingsChanged || sizeChanged) {
+        m_sceneRequestSamples = m_config.msaaSamples;
+        m_sceneRequestHdr = m_config.hdr;
+        if (sizeChanged && !settingsChanged && m_sceneTarget.Valid()) {
+            if (!m_sceneTarget.Resize(sceneWidth, sceneHeight)) {
+                FR_WARN("Scene target resize to %dx%d failed; recreating.", sceneWidth, sceneHeight);
+                RecreateSceneTarget(sceneWidth, sceneHeight);
+            }
+            m_bloom.Resize(sceneWidth, sceneHeight);
+        } else {
+            RecreateSceneTarget(sceneWidth, sceneHeight);
+            m_bloom.Create(sceneWidth, sceneHeight);
+        }
     }
-    if (!m_shadowMap.Valid()) {
-        m_shadowMap.Create(m_config.shadowMapSize);
-    } else {
-        m_shadowMap.Resize(m_config.shadowMapSize);
+
+    // Only retry the shadow map when the requested size actually changes so a
+    // driver that cannot allocate one does not stall the frame in a retry loop.
+    if (m_shadowRequestedSize != m_config.shadowMapSize) {
+        m_shadowRequestedSize = m_config.shadowMapSize;
+        if (!m_shadowMap.Create(m_config.shadowMapSize)) {
+            FR_WARN("Shadow map creation failed at %d; shadows disabled.", m_config.shadowMapSize);
+        }
     }
 }
 

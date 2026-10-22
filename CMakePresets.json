@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "linux",
+      "displayName": "Linux Release (system SDL2)",
+      "description": "Use the SDL2 development package installed by the system.",
+      "binaryDir": "${sourceDir}/build/linux",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "linux-fetch",
+      "displayName": "Linux Release (fetch SDL2)",
+      "description": "Download and build SDL2 when it is not installed.",
+      "binaryDir": "${sourceDir}/build/linux-fetch",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "FRONTIER_FETCH_SDL2": "ON" }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows Release (fetch SDL2)",
+      "description": "Visual Studio or MinGW; SDL2 is downloaded and copied next to the exe.",
+      "binaryDir": "${sourceDir}/build/windows",
+      "cacheVariables": { "FRONTIER_FETCH_SDL2": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux", "configurePreset": "linux" },
+    { "name": "linux-fetch", "configurePreset": "linux-fetch" },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release" }
+  ]
+}

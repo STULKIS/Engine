@@ -75,6 +75,7 @@ private:
     bool LoadPrograms(const std::string& assetDirectory);
     bool CreateTextures();
     bool CreateTargets(int width, int height);
+    bool RecreateSceneTarget(int width, int height);
 
     void UpdateTargets();
     void RenderShadowPass();
@@ -115,6 +116,12 @@ private:
 
     int m_windowWidth = 1600;
     int m_windowHeight = 900;
+    // Last *requested* scene target settings (as opposed to the effective ones
+    // stored in SceneTarget after driver clamping) so the renderer can tell a
+    // real configuration change from a clamped value.
+    int m_sceneRequestSamples = -1;
+    bool m_sceneRequestHdr = false;
+    int m_shadowRequestedSize = -1;
     bool m_ready = false;
 };
 
