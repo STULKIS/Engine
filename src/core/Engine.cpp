@@ -5,6 +5,7 @@
 #include "game/Player.h"
 #include "render/GL.h"
 #include "render/Renderer.h"
+#include "render/Shader.h"
 #include "scene/Camera.h"
 #include "scene/Frustum.h"
 #include "scene/Terrain.h"
@@ -497,6 +498,31 @@ int Engine::RunHeadless(AppConfig& config) {
     const bool frustumBehind = probeFrustum.ContainsSphere(vec3(0.0f, 0.0f, 50.0f), 2.0f);
     const bool frustumFar = probeFrustum.ContainsSphere(vec3(0.0f, 0.0f, -2000.0f), 4.0f);
 
+    // Validate that every shader source and include can be resolved. This
+    // exercises the same loader the windowed renderer uses, without GL.
+    const char* shaderFiles[] = {
+        "sky.vert", "sky.frag", "terrain.vert", "terrain.frag",
+        "foliage.vert", "foliage.frag", "water.vert", "water.frag",
+        "shadow.vert", "shadow_instanced.vert", "shadow.frag",
+        "fullscreen.vert", "bloom_threshold.frag", "bloom_blur.frag", "post.frag",
+    };
+    int shadersExpanded = 0;
+    int shaderFailures = 0;
+    for (const char* shaderFile : shaderFiles) {
+        const std::string path = assets + "/shaders/" + shaderFile;
+        std::string source;
+        std::string error;
+        if (!render::ExpandShaderIncludes(path, source, error) || source.find("void main") == std::string::npos) {
+            FR_ERROR("Shader source check failed for %s: %s", path.c_str(),
+                     error.empty() ? "no entry point found" : error.c_str());
+            ++shaderFailures;
+        } else {
+            ++shadersExpanded;
+        }
+    }
+    FR_INFO("Shader sources expanded: %d/%d.", shadersExpanded,
+            shadersExpanded + shaderFailures);
+
     const float dt = 1.0f / 60.0f;
     const int jumpFrame = 20;
     const float startHours = world.Time().Hours();
@@ -544,6 +570,7 @@ int Engine::RunHeadless(AppConfig& config) {
     if (!spawnDry) { FR_ERROR("Smoke test failed: spawn point is underwater."); ok = false; }
     if (!spawnInside) { FR_ERROR("Smoke test failed: spawn point is outside the map."); ok = false; }
     if (!heightfieldComplete) { FR_ERROR("Smoke test failed: heightfield sample count mismatch."); ok = false; }
+    if (shaderFailures != 0) { FR_ERROR("Smoke test failed: shader assets could not be expanded."); ok = false; }
     if (!moved) { FR_ERROR("Smoke test failed: player did not move forward."); ok = false; }
     if (!timeAdvanced) { FR_ERROR("Smoke test failed: time of day did not advance."); ok = false; }
     if (!frustumFront || frustumBehind || frustumFar) {

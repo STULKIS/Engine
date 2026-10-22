@@ -55,4 +55,9 @@ private:
 // Reads a text file; returns false on failure.
 bool ReadTextFile(const std::string& path, std::string& outContents);
 
+// Expands `#include "relative/path.glsl"` directives recursively, resolving them
+// relative to the including file. Used by the runtime shader loader, the
+// headless asset check and (mirrored in Python) the offline shader validator.
+bool ExpandShaderIncludes(const std::string& path, std::string& outSource, std::string& error);
+
 } // namespace frontier::render

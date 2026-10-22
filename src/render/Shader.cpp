@@ -64,16 +64,13 @@ bool ResolveIncludes(const std::string& path, std::set<std::string>& included, s
     return true;
 }
 
-std::string PreprocessShader(const std::string& path, std::string& error) {
-    std::set<std::string> included;
-    std::string output;
-    if (!ResolveIncludes(path, included, output, 0, error)) {
-        return {};
-    }
-    return output;
-}
-
 } // namespace
+
+bool ExpandShaderIncludes(const std::string& path, std::string& outSource, std::string& error) {
+    std::set<std::string> included;
+    outSource.clear();
+    return ResolveIncludes(path, included, outSource, 0, error);
+}
 
 bool ReadTextFile(const std::string& path, std::string& outContents) {
     std::ifstream file(path, std::ios::binary);
@@ -142,13 +139,13 @@ bool Shader::LoadFromFiles(const std::string& vertexPath, const std::string& fra
                            const std::string& debugName) {
     m_name = debugName;
     std::string error;
-    const std::string vertexSource = PreprocessShader(vertexPath, error);
-    if (vertexSource.empty()) {
+    std::string vertexSource;
+    std::string fragmentSource;
+    if (!ExpandShaderIncludes(vertexPath, vertexSource, error) || vertexSource.empty()) {
         FR_ERROR("[%s] Could not load vertex shader '%s': %s", debugName.c_str(), vertexPath.c_str(), error.c_str());
         return false;
     }
-    const std::string fragmentSource = PreprocessShader(fragmentPath, error);
-    if (fragmentSource.empty()) {
+    if (!ExpandShaderIncludes(fragmentPath, fragmentSource, error) || fragmentSource.empty()) {
         FR_ERROR("[%s] Could not load fragment shader '%s': %s", debugName.c_str(), fragmentPath.c_str(), error.c_str());
         return false;
     }

@@ -44,6 +44,7 @@ with no GPU, no libGL and no display):
 | `cmake` configure + full build | **passes** (GCC 12.2, CMake 3.28, `-Wall -Wextra -Wpedantic`) |
 | Link (SDL2 + vendored ImGui/GLM) | **passes** |
 | Headless world + simulation (`--headless`) | **passes** for multiple seeds and configurations |
+| Shader `#include` expansion via the runtime loader | **passes** (15/15 sources expand, checked inside `--headless`) |
 | All 15 shader stages compile (`glslangValidator`) | **passes** |
 | All 9 vertex/fragment program pairs link (`glslangValidator -l`) | **passes** |
 | Windowed OpenGL start-up | **cannot be exercised here** — the container has no GL driver; the engine exits with a clear error instead of crashing |
@@ -109,7 +110,10 @@ pixel-verified in this container. On a normal desktop the expected flow is
 ### Tooling
 - `--headless` mode runs world generation, placement, time of day and player
   physics with no window and no GPU — ideal for CI and for validating the
-  simulation on servers.
+  simulation on servers. It also expands every shader source (and its
+  `#include`s) through the same loader the renderer uses, and fails with exit
+  code 3 if any assertion — spawn, heightfield, movement, time, vegetation,
+  frustum culling or shader assets — does not hold.
 - `scripts/validate_shaders.py` expands the engine's `#include` convention and
   validates every shader stage/program with `glslangValidator`.
 - `scripts/build_no_cmake.sh` fallback build for environments without CMake.
