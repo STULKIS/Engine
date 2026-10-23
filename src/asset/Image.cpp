@@ -851,7 +851,7 @@ bool SaveTga(const Image& image, const std::string& path, std::string& error) {
     return static_cast<bool>(file);
 }
 
-bool LoadImage(const std::string& path, Image& out, std::string& error) {
+bool LoadImageFile(const std::string& path, Image& out, std::string& error) {
     std::vector<uint8_t> bytes;
     if (!ReadFileBytes(path, bytes, error)) {
         return false;

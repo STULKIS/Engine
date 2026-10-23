@@ -35,7 +35,9 @@ ImageFormat ImageFormatFromPath(const std::string& path);
 const char* ImageFormatName(ImageFormat format);
 
 // Dispatches on the file extension; `error` explains the failure.
-bool LoadImage(const std::string& path, Image& out, std::string& error);
+// (Named *File* because <windows.h> defines LoadImage as a macro, which any
+// translation unit that includes SDL.h would otherwise pick up.)
+bool LoadImageFile(const std::string& path, Image& out, std::string& error);
 
 bool DecodePng(const uint8_t* data, size_t size, Image& out, std::string& error);
 bool DecodeTga(const uint8_t* data, size_t size, Image& out, std::string& error);

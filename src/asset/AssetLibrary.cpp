@@ -78,7 +78,7 @@ bool AssetLibrary::Scan(const std::string& root, std::string& error) {
         asset.name = path.stem().string();
         asset.path = path.lexically_relative(fs::path(root)).generic_string();
         std::string message;
-        if (!LoadImage(path.string(), asset.image, message)) {
+        if (!LoadImageFile(path.string(), asset.image, message)) {
             ++m_failures;
             problems.push_back(message);
             continue;

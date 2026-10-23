@@ -252,7 +252,7 @@ bool Engine::Initialize(AppConfig& config) {
     {
         std::string iconError;
         asset::Image icon;
-        if (asset::LoadImage(config.assetsDir + "/branding/derecho-logo.png", icon, iconError)) {
+        if (asset::LoadImageFile(config.assetsDir + "/branding/derecho-logo.png", icon, iconError)) {
             m_window->SetIcon(icon.pixels.data(), icon.width, icon.height);
             DE_INFO("Window icon: %s (%dx%d).", "branding/derecho-logo.png", icon.width, icon.height);
         } else {

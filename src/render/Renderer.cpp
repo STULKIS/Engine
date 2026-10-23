@@ -295,7 +295,7 @@ bool Renderer::LoadAssets(const std::string& assetDirectory) {
     // Branding: the engine logo, shown in the About panel.
     {
         asset::Image logo;
-        if (asset::LoadImage(assetDirectory + "/branding/derecho-logo.png", logo, error)) {
+        if (asset::LoadImageFile(assetDirectory + "/branding/derecho-logo.png", logo, error)) {
             TextureDesc desc;
             desc.generateMips = true;
             desc.repeat = false;
