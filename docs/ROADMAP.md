@@ -83,7 +83,7 @@ meaningless on terrain and trees:
 | # | Milestone | Ships | Status |
 |---|---|---|---|
 | 0 | Render styles (NPR/anime) + quality presets | cel shading, ink outlines, painted sky, `--quality` presets, `F7` toggle | **done** |
-| 1 | Scene foundation | `Scene`, `Entity`, transforms, hierarchy, primitive mesh renderer, JSON save/load, outliner + inspector | **in progress** (done: entities, hierarchy, primitives, JSON, selection; next: prefabs, components, asset refs) |
+| 1 | Scene foundation | `Scene`, `Entity`, transforms, hierarchy, primitive mesh renderer, JSON save/load, outliner + inspector, component scripting | **in progress** (done: entities, hierarchy, primitives, JSON, inspector, native scripts with parameters; next: prefabs, asset references, C#-style external scripts) |
 | 2 | Editor | docking layout, outliner, inspector, viewport picking, translate/rotate/scale gizmos, undo/redo, play-in-editor | |
 | 3 | Assets | OBJ + glTF import, PNG/TGA/JPG textures (vendored stb), material assets, drag-and-drop, hot reload | |
 | 4 | Scripting | C#-style language (below), component scripts, hot reload, editor script editor | |

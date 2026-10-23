@@ -4,6 +4,7 @@
 #include "core/Window.h"
 #include "game/Player.h"
 #include "render/Renderer.h"
+#include "scene/Script.h"
 #include "world/World.h"
 
 #include <imgui.h>
@@ -375,7 +376,11 @@ void DebugUI::DrawScenePanel(core::AppConfig& config, scene::Scene& entities, De
         }
         ImGui::PushID(static_cast<int>(entity.id));
         const bool selected = m_selectedEntity == entity.id;
-        if (ImGui::Selectable(entity.name.c_str(), selected)) {
+        std::string label = entity.name;
+        if (!entity.script.empty()) {
+            label += "  ·  " + entity.script;
+        }
+        if (ImGui::Selectable(label.c_str(), selected)) {
             m_selectedEntity = entity.id;
         }
         ImGui::PopID();
@@ -411,6 +416,44 @@ void DebugUI::DrawScenePanel(core::AppConfig& config, scene::Scene& entities, De
     ImGui::SetNextItemWidth(220.0f);
     ImGui::ColorEdit3("Colour", &selected->color.x);
     ImGui::Checkbox("Cast shadow", &selected->castShadow);
+
+    // Script attachment: a Unity-style behaviour picked by name, with its
+    // exposed parameters turned into sliders generated from the registry.
+    const auto& scriptTypes = scene::ScriptTypes();
+    std::string currentScript = selected->script.empty() ? "None" : selected->script;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::BeginCombo("Script", currentScript.c_str())) {
+        if (ImGui::Selectable("None", selected->script.empty())) {
+            selected->script.clear();
+            selected->scriptParams.clear();
+        }
+        for (const scene::ScriptType& type : scriptTypes) {
+            const bool active = selected->script == type.name;
+            if (ImGui::Selectable(type.name, active)) {
+                selected->script = type.name;
+                selected->scriptParams.clear();
+                for (const scene::ScriptParam& param : type.params) {
+                    selected->scriptParams.emplace_back(param.name, param.defaultValue);
+                }
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", type.description);
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    if (const scene::ScriptType* type = scene::FindScriptType(selected->script)) {
+        ImGui::Indent(12.0f);
+        for (const scene::ScriptParam& param : type->params) {
+            float value = scene::ScriptParamValue(*selected, param);
+            ImGui::SetNextItemWidth(190.0f);
+            if (ImGui::SliderFloat(param.label, &value, param.minimum, param.maximum, param.format)) {
+                scene::SetScriptParam(*selected, param.name, value);
+            }
+        }
+        ImGui::Unindent(12.0f);
+    }
 
     if (ImGui::Button("Delete entity")) {
         entities.Destroy(selected->id);

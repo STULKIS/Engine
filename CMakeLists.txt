@@ -139,6 +139,7 @@ set(FRONTIER_SOURCES
     src/render/Texture.cpp
     src/scene/Camera.cpp
     src/scene/Scene.cpp
+    src/scene/Script.cpp
     src/scene/Frustum.cpp
     src/scene/Terrain.cpp
     src/scene/TimeOfDay.cpp

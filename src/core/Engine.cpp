@@ -466,6 +466,10 @@ void Engine::Update(float deltaSeconds) {
     scene::Camera& camera = m_player->Camera();
     camera.SetAspect(static_cast<float>(m_window->Width()) / static_cast<float>(std::max(1, m_window->Height())));
 
+    // Scene behaviours run after the player so scripts react to this frame's
+    // camera state, and before the world update so foliage follows the props.
+    m_scripts.Update(m_entities, deltaSeconds);
+
     const scene::Frustum frustum = scene::Frustum::FromViewProjection(camera.ViewProjection());
     m_world->Update(deltaSeconds, camera, frustum, m_config.render);
 }
@@ -557,6 +561,7 @@ void Engine::RenderFrame() {
 }
 
 void Engine::BuildDefaultScene() {
+    m_scripts.Clear(m_entities);
     m_entities.Clear();
     m_entities.SetPath("scene.json");
 
@@ -586,6 +591,8 @@ void Engine::BuildDefaultScene() {
     if (scene::Entity* entity = m_entities.Find(marker)) {
         entity->scale = vec3(1.4f, 1.6f, 1.4f);
         entity->color = vec3(0.92f, 0.55f, 0.25f);
+        entity->script = "Spin";
+        entity->SetParam("speed", 30.0f);
     }
 
     const scene::EntityId orb = m_entities.Create("Orb", scene::Primitive::Sphere,
@@ -593,6 +600,9 @@ void Engine::BuildDefaultScene() {
     if (scene::Entity* entity = m_entities.Find(orb)) {
         entity->scale = vec3(0.9f);
         entity->color = vec3(0.55f, 0.78f, 0.95f);
+        entity->script = "Bob";
+        entity->SetParam("amplitude", 0.35f);
+        entity->SetParam("frequency", 0.25f);
     }
 
     FR_INFO("Scene ready: %zu entities around the spawn point.", m_entities.AliveCount());
@@ -611,6 +621,7 @@ void Engine::SaveScene(const std::string& path) {
 void Engine::LoadScene(const std::string& path) {
     const std::string source = path.empty() ? "scene.json" : path;
     std::string error;
+    m_scripts.Clear(m_entities);
     if (!m_entities.Load(source, error)) {
         FR_ERROR("Could not load the scene: %s", error.c_str());
         return;
@@ -944,6 +955,8 @@ int Engine::RunHeadless(AppConfig& config) {
             entity->scale = vec3(1.5f, 2.0f, 0.5f);
             entity->color = vec3(0.9f, 0.2f, 0.1f);
             entity->parent = box;
+            entity->script = "Spin";
+            entity->SetParam("speed", 90.0f);
         }
 
         std::string error;
@@ -961,9 +974,41 @@ int Engine::RunHeadless(AppConfig& config) {
                                      glm::length(sphereLoaded->scale - vec3(1.5f, 2.0f, 0.5f)) < 1e-4f &&
                                      sphereLoaded->parent == box &&
                                      sphereLoaded->primitive == scene::Primitive::Sphere;
-            sceneRoundTrip = countMatches && valuesMatch;
-            FR_INFO("Scene round-trip: %zu entities, hierarchy and values %s.",
+            const bool scriptMatches = sphereLoaded && sphereLoaded->script == "Spin" &&
+                                       std::abs(sphereLoaded->Param("speed", 0.0f) - 90.0f) < 1e-3f;
+            sceneRoundTrip = countMatches && valuesMatch && scriptMatches;
+            FR_INFO("Scene round-trip: %zu entities, hierarchy, values and scripts %s.",
                     loaded.AliveCount(), sceneRoundTrip ? "preserved" : "MISMATCH");
+        }
+
+        // Behaviour system: a Spin script must actually rotate its entity, and
+        // must not fire on entities that have no script.
+        if (sceneRoundTrip) {
+            scene::Scene runtime;
+            const scene::EntityId spinner =
+                runtime.Create("Spinner", scene::Primitive::Box, vec3(0.0f));
+            if (scene::Entity* entity = runtime.Find(spinner)) {
+                entity->script = "Spin";
+                entity->SetParam("speed", 90.0f);
+            }
+            const scene::EntityId idle = runtime.Create("Idle", scene::Primitive::Box, vec3(0.0f));
+
+            scene::ScriptHost host;
+            for (int step = 0; step < 60; ++step) {
+                host.Update(runtime, 1.0f / 60.0f);
+            }
+            const scene::Entity* spun = runtime.Find(spinner);
+            const scene::Entity* still = runtime.Find(idle);
+            const bool rotated = spun && std::abs(spun->rotation.y - 90.0f) < 2.0f;
+            const bool untouched = still && glm::length(still->rotation) < 1e-4f;
+            if (!rotated || !untouched) {
+                sceneRoundTrip = false;
+                FR_ERROR("Script test failed: spin=%.2f idle=%.2f", spun ? spun->rotation.y : -1.0f,
+                         still ? still->rotation.y : -1.0f);
+            } else {
+                FR_INFO("Script test: Spin advanced %.1f degrees over 1 s, idle entity unchanged.",
+                        spun->rotation.y);
+            }
         }
         std::error_code ec;
         fs::remove(path, ec);

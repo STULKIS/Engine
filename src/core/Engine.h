@@ -4,6 +4,7 @@
 #include "core/Config.h"
 #include "core/Input.h"
 #include "core/Time.h"
+#include "scene/Script.h"
 #include "scene/Scene.h"
 
 #include <memory>
@@ -57,6 +58,7 @@ private:
     std::unique_ptr<render::Renderer> m_renderer;
     std::unique_ptr<world::World> m_world;
     scene::Scene m_entities;
+    scene::ScriptHost m_scripts;
     std::unique_ptr<game::Player> m_player;
     std::unique_ptr<ui::DebugUI> m_debugUI;
 

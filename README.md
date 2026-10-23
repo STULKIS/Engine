@@ -269,6 +269,24 @@ depth resolve, so it is essentially free next to the terrain and foliage.
 - Every run of `--headless` performs a scene save/load round-trip and fails if
   entity count, hierarchy or values do not survive.
 
+### Scripting
+- Scripts attach to entities by name, exactly like a Unity `MonoBehaviour`: they
+  get `OnStart` once, `OnUpdate` every frame with a clamped delta time, and
+  `OnStop` when detached or destroyed.
+- Each script type declares named float parameters with ranges and a label; the
+  inspector builds sliders from that declaration, and the values are written
+  into the scene file, so a saved scene carries its behaviour setup with it.
+- Built-in scripts: **Spin** (rotation around X/Y/Z at N degrees per second),
+  **Bob** (sine float around the start height), **Orbit** (circle the world
+  origin at a radius/height) and **Pulse** (sine scale). The default scene
+  attaches Spin to the spawn marker and Bob to the orb, so the system is
+  visible the moment the engine starts.
+- Adding a behaviour is one class plus one registry entry in
+  `src/scene/Script.cpp`; nothing else in the engine changes.
+- `--headless` also proves the runtime: it spins an entity for one simulated
+  second, asserts it advanced the expected angle, and asserts an entity with no
+  script stayed untouched.
+
 ### World
 - 900 m × 900 m procedural heightfield (256² quads by default, configurable):
   rolling hills, masked ridged mountain ranges, a lake basin, a river valley,

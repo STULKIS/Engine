@@ -35,6 +35,25 @@ vec3 JsonToVec3(const JsonValue* value, const vec3& fallback) {
 
 } // namespace
 
+float Entity::Param(const char* name, float fallback) const {
+    for (const auto& entry : scriptParams) {
+        if (entry.first == name) {
+            return entry.second;
+        }
+    }
+    return fallback;
+}
+
+void Entity::SetParam(const std::string& name, float value) {
+    for (auto& entry : scriptParams) {
+        if (entry.first == name) {
+            entry.second = value;
+            return;
+        }
+    }
+    scriptParams.emplace_back(name, value);
+}
+
 const char* PrimitiveName(Primitive primitive) {
     switch (primitive) {
         case Primitive::Box: return "box";
@@ -173,6 +192,16 @@ bool Scene::Save(const std::string& path, std::string& error) const {
         item["scale"] = Vec3ToJson(entity.scale);
         item["color"] = Vec3ToJson(entity.color);
         item["castShadow"] = JsonValue(entity.castShadow);
+        if (!entity.script.empty()) {
+            item["script"] = JsonValue(entity.script);
+            if (!entity.scriptParams.empty()) {
+                JsonValue params = JsonValue::MakeObject();
+                for (const auto& entry : entity.scriptParams) {
+                    params[entry.first] = JsonValue(static_cast<double>(entry.second));
+                }
+                item["scriptParams"] = std::move(params);
+            }
+        }
         if (entity.parent != kInvalidEntity) {
             item["parent"] = JsonValue(static_cast<int>(entity.parent));
         }
@@ -223,6 +252,13 @@ bool Scene::Load(const std::string& path, std::string& error) {
         entity.scale = JsonToVec3(item.Find("scale"), vec3(1.0f));
         entity.color = JsonToVec3(item.Find("color"), vec3(0.75f));
         entity.castShadow = item.GetBool("castShadow", true);
+        entity.script = item.GetString("script", "");
+        if (const JsonValue* params = item.Find("scriptParams")) {
+            for (const auto& entry : params->Members()) {
+                entity.scriptParams.emplace_back(entry.first,
+                                                 static_cast<float>(entry.second.NumberValue(0.0)));
+            }
+        }
         entity.parent = static_cast<EntityId>(item.GetInt("parent", 0));
         highest = std::max(highest, entity.id);
         m_entities.push_back(std::move(entity));

@@ -9,6 +9,7 @@
 #include "math/Math.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace frontier::scene {
@@ -36,6 +37,14 @@ struct Entity {
     vec3 color{0.72f, 0.74f, 0.78f};
     bool castShadow = true;
     EntityId parent = kInvalidEntity;
+
+    // Behaviour attached to this entity ("" = none) plus its tunable floats.
+    // Both are plain data so the scene file stays self-describing.
+    std::string script;
+    std::vector<std::pair<std::string, float>> scriptParams;
+
+    float Param(const char* name, float fallback) const;
+    void SetParam(const std::string& name, float value);
 
     mat4 LocalMatrix() const;
 };
