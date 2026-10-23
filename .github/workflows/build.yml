@@ -75,6 +75,16 @@ jobs:
           Copy-Item scripts\run_windows.bat dist\run.bat
           Copy-Item scripts\run_windows_readme.txt dist\README.txt
           Get-ChildItem dist
+          # The artifact must be runnable as-is: every file the engine needs at
+          # start-up has to be present, otherwise the download is useless.
+          $required = @("frontier.exe", "SDL2.dll", "run.bat", "README.txt",
+                        "assets\shaders\sky.vert", "assets\shaders\foliage.frag")
+          foreach ($file in $required) {
+            if (-not (Test-Path (Join-Path dist $file))) {
+              Write-Host "::error::the runnable artifact is missing $file"
+              exit 1
+            }
+          }
 
       - name: Upload runnable build
         uses: actions/upload-artifact@v4
