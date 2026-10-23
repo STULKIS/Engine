@@ -15,6 +15,7 @@ namespace {
 std::mutex g_logMutex;
 std::FILE* g_file = nullptr;
 LogLevel g_level = LogLevel::Info;
+std::string g_lastError;
 
 const char* ShortFileName(const char* path) {
     const char* lastSlash = std::strrchr(path, '/');
@@ -76,6 +77,11 @@ void Log::SetLevel(LogLevel level) {
 
 LogLevel Log::Level() { return g_level; }
 
+std::string Log::LastError() {
+    std::lock_guard<std::mutex> lock(g_logMutex);
+    return g_lastError;
+}
+
 void Log::Write(LogLevel level, const char* file, int line, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -105,6 +111,9 @@ void Log::WriteV(LogLevel level, const char* file, int line, const char* fmt, va
     const char* shortFile = ShortFileName(file);
 
     std::lock_guard<std::mutex> lock(g_logMutex);
+    if (level == LogLevel::Error) {
+        g_lastError = message;
+    }
     std::fprintf(stdout, "[%02d:%02d:%02d.%03d] [%-5s] %s (%s:%d)\n",
                  tmBuf.tm_hour, tmBuf.tm_min, tmBuf.tm_sec, static_cast<int>(ms.count()),
                  levelText, message, shortFile, line);

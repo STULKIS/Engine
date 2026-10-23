@@ -21,6 +21,10 @@ public:
     static void SetLevel(LogLevel level);
     static LogLevel Level();
 
+    // The most recent message logged at Error level (empty if none). Used to
+    // explain a failed start-up in a dialog box when there is no console.
+    static std::string LastError();
+
     static void Write(LogLevel level, const char* file, int line, const char* fmt, ...)
 #if defined(__GNUC__) || defined(__clang__)
         __attribute__((format(printf, 4, 5)))

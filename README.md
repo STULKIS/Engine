@@ -738,6 +738,27 @@ Install `libsdl2-dev` (Debian/Ubuntu) / `SDL2-devel` (Fedora) / `brew install sd
 (macOS, for reference only), or pass `-DFRONTIER_SDL2_ROOT=/path/to/sdl2` /
 `-DCMAKE_PREFIX_PATH=...`.
 
+**Double-clicking `frontier.exe` seems to do nothing.**
+Nothing is *drawn* until a window is created, so a start-up failure looks like
+"nothing happened" — the console window closes the moment the process exits.
+Three things make that visible now:
+
+1. run `run.bat` (in the CI artifact, or `scripts\build_windows.bat` output)
+   instead of the exe: it keeps the console open and prints the exit code;
+2. any failed start raises a message box naming the last error and the log path;
+3. the log is always written next to the executable (`frontier.log`).
+
+If there is no message box and no log at all, no code ran: the executable was
+blocked (antivirus/SmartScreen — allow it), or it is missing `SDL2.dll` and
+`assets\` from the same folder. To see the real output, start it from a
+terminal:
+
+```bat
+cd C:\path\to\frontier
+.\frontier.exe
+echo exit code: %ERRORLEVEL%
+```
+
 **`SDL2.dll was not found` (Windows).**
 The executable needs `SDL2.dll` beside it. The CMake build copies it there
 automatically; if you moved `frontier.exe`, copy `SDL2.dll` (from the SDL2

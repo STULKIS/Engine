@@ -72,6 +72,22 @@ jobs:
           Copy-Item build\Release\frontier.exe dist\
           if (Test-Path build\Release\SDL2.dll) { Copy-Item build\Release\SDL2.dll dist\ }
           Copy-Item build\Release\assets dist\assets -Recurse
+          Copy-Item scripts\run_windows.bat dist\run.bat
+          @"
+Frontier Engine - quick start
+=============================
+1. Start the game:      run.bat            (keeps the console window open)
+   or directly:         frontier.exe
+2. Verify this machine: frontier.exe --selftest
+   It renders a frame, checks the pixels and writes screenshots\selftest.ppm.
+3. If it does not start, run run.bat and read the message, or open
+   frontier.log in this folder. Common causes:
+   - GPU driver older than OpenGL 4.5 (update it, avoid remote desktop)
+   - an antivirus quarantined frontier.exe (restore/allow it)
+   - assets\ is missing (keep it next to the executable)
+Only MSAA/HDR/bloom and the world size are tuned by safe mode:
+   frontier.exe --safe-mode
+"@ | Set-Content -Encoding ASCII dist\README.txt
           Get-ChildItem dist
 
       - name: Upload runnable build
