@@ -37,6 +37,8 @@ bool Window::Create(const std::string& title, int width, int height, bool fullsc
     m_fullscreen = fullscreen;
     m_resizable = resizable;
     m_vsync = vsync;
+    int desktopWidth = 0;
+    int desktopHeight = 0;
 
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
         FR_ERROR("SDL video subsystem init failed: %s", SDL_GetError());
@@ -47,6 +49,29 @@ bool Window::Create(const std::string& title, int width, int height, bool fullsc
         SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
         SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER, "1");
     }
+
+    // A 1600x900 default window does not fit on a 1366x768 laptop panel; the
+    // window ends up larger than the desktop and can be partly off-screen,
+    // which reads as "it started but I see nothing". Shrink it to the usable
+    // desktop area when the request does not fit.
+    if (!fullscreen) {
+        SDL_Rect usable{};
+        if (SDL_GetDisplayUsableBounds(0, &usable) == 0 && usable.w > 0 && usable.h > 0) {
+            desktopWidth = usable.w;
+            desktopHeight = usable.h;
+            const int maxWidth = std::max(640, usable.w - 80);
+            const int maxHeight = std::max(480, usable.h - 120);
+            if (width > maxWidth || height > maxHeight) {
+                FR_WARN("Requested window %dx%d does not fit the %dx%d desktop; using %dx%d.",
+                        width, height, usable.w, usable.h, std::min(width, maxWidth),
+                        std::min(height, maxHeight));
+                width = std::min(width, maxWidth);
+                height = std::min(height, maxHeight);
+            }
+        }
+    }
+    m_width = width;
+    m_height = height;
 
     SetGLAttributes(vsync);
 
@@ -109,6 +134,9 @@ bool Window::Create(const std::string& title, int width, int height, bool fullsc
     FR_INFO("Window created: %s (%dx%d, %s, vsync=%s)",
             title.c_str(), m_width, m_height,
             fullscreen ? "fullscreen" : "windowed", vsync ? "on" : "off");
+    if (const char* driver = SDL_GetCurrentVideoDriver()) {
+        FR_INFO("SDL video driver: %s, desktop %dx%d.", driver, desktopWidth, desktopHeight);
+    }
     return true;
 }
 
