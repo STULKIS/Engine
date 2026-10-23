@@ -84,8 +84,8 @@ meaningless on terrain and trees:
 |---|---|---|---|
 | 0 | Render styles (NPR/anime) + quality presets | cel shading, ink outlines, painted sky, `--quality` presets, `F7` toggle | **done** |
 | 1 | Scene foundation | `Scene`, `Entity`, transforms, hierarchy, primitive mesh renderer, JSON save/load, outliner + inspector, component scripting | **in progress** (done: entities, hierarchy, primitives, JSON, inspector, native scripts with parameters; next: prefabs, asset references, C#-style external scripts) |
-| 2 | Editor | docking layout, outliner, inspector, viewport picking, translate/rotate/scale gizmos, undo/redo, play-in-editor | |
-| 3 | Assets | OBJ + glTF import, PNG/TGA/JPG textures (vendored stb), material assets, drag-and-drop, hot reload | |
+| 2 | Editor | docking layout, outliner, inspector, asset pickers, see-through camera toggle, viewport picking, gizmos, undo/redo, play-in-editor | **in progress** (done: outliner + inspector + asset pickers + camera modes; next: picking, gizmos, undo) |
+| 3 | Assets | OBJ import, PNG/TGA textures, generated placeholder art, per-entity model/texture pickers | **partly done** (done: OBJ in/out, PNG+TGA decode, PNG encode, placeholder character/props/textures, asset library + inspector; next: glTF, JPG, material assets, hot reload, instanced asset draws) |
 | 4 | Scripting | C#-style language (below), component scripts, hot reload, editor script editor | |
 | 5 | Simulation | colliders (capsule/box/sphere), swept collision, rigid bodies, raycasts, triggers, character controller, audio | |
 | 6 | Rendering II | PBR + IBL from the procedural sky, cascaded shadows, SSAO, LOD/impostor tuning, GPU timers | |

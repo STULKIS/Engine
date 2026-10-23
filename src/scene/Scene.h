@@ -36,6 +36,12 @@ struct Entity {
     Primitive primitive = Primitive::Box;
     vec3 color{0.72f, 0.74f, 0.78f};
     bool castShadow = true;
+    bool visible = true;
+
+    // Optional imported assets. When `mesh` names a model in the asset library
+    // it replaces the primitive; `texture` names an albedo map ("" = flat tint).
+    std::string mesh;
+    std::string texture;
     EntityId parent = kInvalidEntity;
 
     // Behaviour attached to this entity ("" = none) plus its tunable floats.

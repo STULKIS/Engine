@@ -2,6 +2,7 @@
 // foliage, water, bloom and ACES tone mapping.
 #pragma once
 
+#include "asset/AssetLibrary.h"
 #include "core/Config.h"
 #include "render/Framebuffer.h"
 #include "render/Mesh.h"
@@ -11,6 +12,7 @@
 #include "scene/Scene.h"
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace frontier::scene { class Camera; }
@@ -54,6 +56,8 @@ public:
     bool SaveScreenshot(const std::string& path) const;
 
     const RenderStats& Stats() const { return m_stats; }
+    // Meshes and textures found on disk; the editor lists these.
+    const asset::AssetLibrary& Assets() const { return m_assets; }
     int OutputWidth() const { return m_windowWidth; }
     int OutputHeight() const { return m_windowHeight; }
     bool Ready() const { return m_ready; }
@@ -87,8 +91,11 @@ private:
     void RenderTerrainPass();
     void RenderFoliagePass();
     void RenderObjectPass();
+    void RenderAssetPass();
     void RenderWaterPass();
     bool CreatePrimitiveMeshes();
+    // Generates missing placeholder art, scans the asset folder and uploads it.
+    bool LoadAssets(const std::string& assetDirectory);
     // Groups scene entities by primitive into per-instance buffers.
     void BuildInstanceBuffers();
     void RenderBloomPass();
@@ -105,6 +112,8 @@ private:
     Shader m_shadowShader;
     Shader m_shadowInstancedShader;
     Shader m_objectShader;
+    Shader m_assetShader;
+    Shader m_shadowAssetShader;
     Shader m_bloomThresholdShader;
     Shader m_bloomBlurShader;
     Shader m_postShader;
@@ -118,6 +127,11 @@ private:
     Mesh m_primitiveMeshes[static_cast<int>(scene::Primitive::Count)];
     std::vector<std::vector<InstanceData>> m_primitiveInstances;
     std::vector<int> m_primitiveDrawCounts;
+
+    // Imported assets, uploaded lazily on the first frame that needs them.
+    asset::AssetLibrary m_assets;
+    std::unordered_map<std::string, Mesh> m_assetMeshes;
+    std::unordered_map<std::string, Texture> m_assetTextures;
     SceneTarget m_sceneTarget;
     ShadowMap m_shadowMap;
     BloomChain m_bloom;

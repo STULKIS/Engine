@@ -23,6 +23,8 @@ struct PlayerSettings {
     float swimSpeed = 3.2f;
     float mouseSensitivity = 0.11f;
     bool invertY = false;
+    bool thirdPerson = false;
+    float thirdPersonDistance = 4.5f;
 };
 
 class Player {
@@ -30,6 +32,9 @@ public:
     Player() = default;
 
     void Spawn(const scene::Terrain& terrain, const vec3& position);
+    void SetThirdPerson(bool enabled);
+    bool ThirdPerson() const { return m_settings.thirdPerson; }
+    void SetThirdPersonDistance(float metres);
     void Update(float deltaSeconds, const core::Input& input, const scene::Terrain& terrain);
     void ApplyMouseLook(core::Input& input);
 
@@ -46,11 +51,14 @@ public:
     bool CameraRelativeMouse() const { return m_captured; }
     void SetCaptured(bool captured) { m_captured = captured; }
 
+    // Yaw in degrees, for orienting the player's visible character model.
+    float YawDegrees() const { return glm::degrees(m_camera.Yaw()); }
+
     PlayerSettings& Settings() { return m_settings; }
     const PlayerSettings& Settings() const { return m_settings; }
 
 private:
-    void UpdateCameraTransform();
+    void UpdateCameraTransform(const scene::Terrain* terrain);
     bool CanStandAt(const scene::Terrain& terrain, const vec3& position) const;
 
     PlayerSettings m_settings;

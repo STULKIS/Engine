@@ -82,6 +82,10 @@ struct GameConfig {
     float jumpVelocity = 6.0f;
     float gravity = -20.0f;
     bool invertY = false;
+    // Camera rig: first person (default) or an over-the-shoulder third person
+    // view that shows the player character. Toggle at runtime with V.
+    bool thirdPerson = false;
+    float thirdPersonDistance = 4.5f;
 };
 
 struct AppConfig {

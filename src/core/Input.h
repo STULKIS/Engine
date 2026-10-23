@@ -27,6 +27,7 @@ enum class Action {
     ToggleWater,
     ToggleTimePause,
     ToggleStyle,
+    ToggleCamera,
     Screenshot,
     Count
 };

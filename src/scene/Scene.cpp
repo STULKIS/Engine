@@ -192,6 +192,15 @@ bool Scene::Save(const std::string& path, std::string& error) const {
         item["scale"] = Vec3ToJson(entity.scale);
         item["color"] = Vec3ToJson(entity.color);
         item["castShadow"] = JsonValue(entity.castShadow);
+        if (!entity.visible) {
+            item["visible"] = JsonValue(false);
+        }
+        if (!entity.mesh.empty()) {
+            item["mesh"] = JsonValue(entity.mesh);
+        }
+        if (!entity.texture.empty()) {
+            item["texture"] = JsonValue(entity.texture);
+        }
         if (!entity.script.empty()) {
             item["script"] = JsonValue(entity.script);
             if (!entity.scriptParams.empty()) {
@@ -252,6 +261,9 @@ bool Scene::Load(const std::string& path, std::string& error) {
         entity.scale = JsonToVec3(item.Find("scale"), vec3(1.0f));
         entity.color = JsonToVec3(item.Find("color"), vec3(0.75f));
         entity.castShadow = item.GetBool("castShadow", true);
+        entity.visible = item.GetBool("visible", true);
+        entity.mesh = item.GetString("mesh", "");
+        entity.texture = item.GetString("texture", "");
         entity.script = item.GetString("script", "");
         if (const JsonValue* params = item.Find("scriptParams")) {
             for (const auto& entry : params->Members()) {

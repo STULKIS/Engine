@@ -16,7 +16,16 @@ void Player::Spawn(const scene::Terrain& terrain, const vec3& position) {
     m_grounded = true;
     m_swimming = false;
     m_jumpCooldown = 0.0f;
-    UpdateCameraTransform();
+    UpdateCameraTransform(&terrain);
+}
+
+void Player::SetThirdPerson(bool enabled) {
+    m_settings.thirdPerson = enabled;
+    UpdateCameraTransform(nullptr);
+}
+
+void Player::SetThirdPersonDistance(float metres) {
+    m_settings.thirdPersonDistance = std::clamp(metres, 1.5f, 12.0f);
 }
 
 void Player::ApplyMouseLook(core::Input& input) {
@@ -167,11 +176,31 @@ void Player::Update(float deltaSeconds, const core::Input& input, const scene::T
     m_position.z = Clamp(m_position.z, -half, half);
 
     m_camera.UpdateBob(deltaSeconds, HorizontalSpeed(), m_velocity.y, m_grounded);
-    UpdateCameraTransform();
+    UpdateCameraTransform(&terrain);
 }
 
-void Player::UpdateCameraTransform() {
-    m_camera.SetPosition(m_position + vec3(0.0f, m_settings.eyeHeight, 0.0f));
+void Player::UpdateCameraTransform(const scene::Terrain* terrain) {
+    const vec3 head = m_position + vec3(0.0f, m_settings.eyeHeight, 0.0f);
+    if (!m_settings.thirdPerson) {
+        m_camera.SetPosition(head);
+        return;
+    }
+
+    vec3 forward = m_camera.Forward();
+    if (glm::length(forward) < 1e-4f) {
+        forward = vec3(0.0f, 0.0f, -1.0f);
+    }
+    // Pull back along the view direction, then bias over the right shoulder so
+    // the character does not sit dead centre.
+    vec3 position = head + vec3(0.0f, 0.25f, 0.0f) - forward * m_settings.thirdPersonDistance +
+                    m_camera.Right() * 0.45f;
+
+    if (terrain) {
+        // Keep the camera out of the ground and above the water surface.
+        const float ground = terrain->HeightAt(position.x, position.z);
+        position.y = std::max(position.y, ground + 0.45f);
+    }
+    m_camera.SetPosition(position);
 }
 
 bool Player::CanStandAt(const scene::Terrain& terrain, const vec3& position) const {

@@ -45,7 +45,7 @@ private:
     void DrawOverview(core::AppConfig&, world::World&, game::Player&, render::Renderer&,
                       const core::FrameStats&, DebugActions&);
     void DrawWorldPanel(world::World&, DebugActions&);
-    void DrawScenePanel(core::AppConfig&, scene::Scene&, DebugActions&);
+    void DrawScenePanel(core::AppConfig&, scene::Scene&, render::Renderer&, DebugActions&);
     void DrawRenderPanel(core::AppConfig&, render::Renderer&);
     void DrawPlayerPanel(core::AppConfig&, game::Player&, DebugActions&);
     void DrawControlsPanel(world::World&, game::Player&, render::Renderer&);

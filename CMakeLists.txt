@@ -138,6 +138,10 @@ set(FRONTIER_SOURCES
     src/render/Shader.cpp
     src/render/Texture.cpp
     src/scene/Camera.cpp
+    src/asset/AssetLibrary.cpp
+    src/asset/Image.cpp
+    src/asset/Mesh.cpp
+    src/asset/Placeholders.cpp
     src/scene/Scene.cpp
     src/scene/Script.cpp
     src/scene/Frustum.cpp

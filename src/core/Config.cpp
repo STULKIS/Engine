@@ -189,6 +189,9 @@ bool ApplySetting(AppConfig& c, const std::string& fullKey, const std::string& v
     if (key == "game.jumpvelocity") return ParseFloat(value, c.game.jumpVelocity);
     if (key == "game.gravity") return ParseFloat(value, c.game.gravity);
     if (key == "game.inverty") return ParseBool(value, c.game.invertY);
+    if (key == "game.thirdperson") return ParseBool(value, c.game.thirdPerson);
+    if (key == "game.thirdpersondistance")
+        return ParseFloat(value, c.game.thirdPersonDistance);
 
     if (key == "app.loglevel") { c.logLevel = Lower(Trim(value)); return true; }
     if (key == "app.logfile") { c.logFile = Trim(value); return true; }
@@ -314,7 +317,9 @@ bool SaveConfigFile(const std::string& path, const AppConfig& c) {
          << "\nsprintMultiplier = " << c.game.sprintMultiplier
          << "\njumpVelocity = " << c.game.jumpVelocity
          << "\ngravity = " << c.game.gravity
-         << "\ninvertY = " << (c.game.invertY ? "true" : "false") << "\n\n"
+         << "\ninvertY = " << (c.game.invertY ? "true" : "false")
+         << "\nthirdPerson = " << (c.game.thirdPerson ? "true" : "false")
+         << "\nthirdPersonDistance = " << c.game.thirdPersonDistance << "\n\n"
          << "[app]\n"
          << "logLevel = " << c.logLevel
          << "\nlogFile = " << c.logFile
@@ -338,6 +343,8 @@ void PrintUsage(const char* exe) {
         "  --day-length=<minutes> Real minutes per in-game day (default 24)\n"
         "  --fov=<degrees>        Vertical field of view (default 68)\n"
         "  --sensitivity=<f>      Mouse sensitivity (default 0.11)\n"
+        "  --camera=<mode>        first or third person (toggle in game with V)\n"
+        "  --camera-distance=<m>  Third-person distance (default 4.5)\n"
         "  --view-distance=<m>    Far plane / culling distance (default 900)\n"
         "  --terrain-resolution=<n> Terrain quads per side (default 256)\n"
         "  --trees=<n>            Tree count (default 900)\n"
@@ -426,6 +433,18 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "day-length") { ApplySetting(config, "world.daylengthminutes", inferredValue(), value); continue; }
         if (key == "fov") { ApplySetting(config, "game.fov", inferredValue(), value); continue; }
         if (key == "sensitivity") { ApplySetting(config, "game.mousesensitivity", inferredValue(), value); continue; }
+        if (key == "camera") {
+            const std::string mode = Lower(Trim(value));
+            if (mode == "first" || mode == "firstperson" || mode == "fps") {
+                ApplySetting(config, "game.thirdperson", "false", value);
+            } else if (mode == "third" || mode == "thirdperson" || mode == "tps") {
+                ApplySetting(config, "game.thirdperson", "true", value);
+            } else {
+                FR_WARN("Unknown camera mode '%s' (use first or third)", value.c_str());
+            }
+            continue;
+        }
+        if (key == "camera-distance") { ApplySetting(config, "game.thirdpersondistance", inferredValue(), value); continue; }
         if (key == "view-distance") { ApplySetting(config, "render.viewdistance", inferredValue(), value); continue; }
         if (key == "shadow-size") { ApplySetting(config, "render.shadowmapsize", inferredValue(), value); continue; }
         if (key == "msaa") { ApplySetting(config, "render.msaasamples", inferredValue(), value); continue; }
@@ -520,6 +539,7 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
     config.world.dayLengthMinutes = std::clamp(config.world.dayLengthMinutes, 1.0f, 1440.0f);
     config.game.fieldOfView = std::clamp(config.game.fieldOfView, 40.0f, 110.0f);
     config.game.mouseSensitivity = std::clamp(config.game.mouseSensitivity, 0.01f, 1.0f);
+    config.game.thirdPersonDistance = std::clamp(config.game.thirdPersonDistance, 1.5f, 12.0f);
     config.game.moveSpeed = std::clamp(config.game.moveSpeed, 0.5f, 40.0f);
     config.game.sprintMultiplier = std::clamp(config.game.sprintMultiplier, 1.0f, 5.0f);
     config.game.gravity = std::clamp(config.game.gravity, -60.0f, -1.0f);

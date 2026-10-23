@@ -84,6 +84,8 @@ def main() -> int:
         ("shadow.vert", "shadow.frag"),
         ("shadow_instanced.vert", "shadow.frag"),
         ("object.vert", "object.frag"),
+        ("asset.vert", "asset.frag"),
+        ("shadow_asset.vert", "shadow.frag"),
         ("fullscreen.vert", "bloom_threshold.frag"),
         ("fullscreen.vert", "bloom_blur.frag"),
         ("fullscreen.vert", "post.frag"),

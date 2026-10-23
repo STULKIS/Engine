@@ -1,5 +1,8 @@
 #include "core/Engine.h"
 
+#include "asset/AssetLibrary.h"
+#include "asset/Mesh.h"
+#include "asset/Placeholders.h"
 #include "core/Log.h"
 #include "core/Window.h"
 #include "game/Player.h"
@@ -417,6 +420,13 @@ void Engine::Update(float deltaSeconds) {
         if (m_input->WasActionPressed(Action::ToggleWater)) {
             m_config.render.showWater = !m_config.render.showWater;
         }
+        if (m_input->WasActionPressed(Action::ToggleCamera)) {
+            m_config.game.thirdPerson = !m_config.game.thirdPerson;
+            if (m_player) {
+                m_player->SetThirdPerson(m_config.game.thirdPerson);
+            }
+            FR_INFO("Camera: %s", m_config.game.thirdPerson ? "third person" : "first person");
+        }
         if (m_input->WasActionPressed(Action::ToggleStyle)) {
             const bool anime = m_config.render.style == RenderStyle::Anime;
             m_config.render.style = anime ? RenderStyle::Realistic : RenderStyle::Anime;
@@ -468,6 +478,7 @@ void Engine::Update(float deltaSeconds) {
 
     // Scene behaviours run after the player so scripts react to this frame's
     // camera state, and before the world update so foliage follows the props.
+    UpdatePlayerCharacter();
     m_scripts.Update(m_entities, deltaSeconds);
 
     const scene::Frustum frustum = scene::Frustum::FromViewProjection(camera.ViewProjection());
@@ -482,6 +493,8 @@ void Engine::SyncPlayerSettings() {
     settings.gravity = m_config.game.gravity;
     settings.mouseSensitivity = m_config.game.mouseSensitivity;
     settings.invertY = m_config.game.invertY;
+    settings.thirdPerson = m_config.game.thirdPerson;
+    settings.thirdPersonDistance = m_config.game.thirdPersonDistance;
 
     if (m_input) {
         m_input->SetMouseSensitivity(m_config.game.mouseSensitivity);
@@ -605,6 +618,46 @@ void Engine::BuildDefaultScene() {
         entity->SetParam("frequency", 0.25f);
     }
 
+    // The visible player: an imported low-poly character that the third-person
+    // camera frames. It follows the player every frame and is hidden in
+    // first person so it never clips into the view.
+    m_playerEntity = m_entities.Create("Player", scene::Primitive::Box, spawn);
+    if (scene::Entity* entity = m_entities.Find(m_playerEntity)) {
+        entity->mesh = "character";
+        entity->texture = "cloth";
+        entity->scale = vec3(1.0f);
+        entity->color = vec3(1.0f);
+        entity->visible = m_config.game.thirdPerson;
+        entity->castShadow = true;
+    }
+    UpdatePlayerCharacter();
+
+    // Placeholder props that prove the model import path: a crystal and rocks.
+    const scene::EntityId crystal = m_entities.Create("Crystal", scene::Primitive::Sphere,
+                                                      spawn + vec3(4.5f, 0.0f, -3.0f));
+    if (scene::Entity* entity = m_entities.Find(crystal)) {
+        entity->mesh = "crystal";
+        entity->position.y = terrain.HeightAt(entity->position.x, entity->position.z);
+        entity->color = vec3(0.62f, 0.86f, 0.95f);
+        entity->script = "Spin";
+        entity->SetParam("speed", 12.0f);
+    }
+    for (int i = 0; i < 5; ++i) {
+        const float angle = static_cast<float>(i) / 5.0f * kTwoPi + 0.6f;
+        const float x = spawn.x + std::cos(angle) * 14.0f;
+        const float z = spawn.z + std::sin(angle) * 14.0f;
+        const scene::EntityId rock = m_entities.Create(m_entities.UniqueName("Rock"),
+                                                       scene::Primitive::Sphere,
+                                                       vec3(x, terrain.HeightAt(x, z) - 0.25f, z));
+        if (scene::Entity* entity = m_entities.Find(rock)) {
+            entity->mesh = "rock";
+            entity->texture = "stone";
+            entity->rotation.y = angle * 57.2958f;
+            entity->scale = vec3(1.1f, 0.9f, 1.1f);
+            entity->color = vec3(0.86f);
+        }
+    }
+
     FR_INFO("Scene ready: %zu entities around the spawn point.", m_entities.AliveCount());
 }
 
@@ -627,6 +680,30 @@ void Engine::LoadScene(const std::string& path) {
         return;
     }
     m_entities.SetPath(source);
+
+    // A loaded scene may or may not contain the player character.
+    m_playerEntity = scene::kInvalidEntity;
+    for (const scene::Entity& entity : m_entities.Entities()) {
+        if (entity.alive && entity.name == "Player") {
+            m_playerEntity = entity.id;
+            break;
+        }
+    }
+}
+
+void Engine::UpdatePlayerCharacter() {
+    if (!m_player || m_playerEntity == scene::kInvalidEntity) {
+        return;
+    }
+    scene::Entity* entity = m_entities.Find(m_playerEntity);
+    if (!entity) {
+        m_playerEntity = scene::kInvalidEntity;
+        return;
+    }
+    // The model faces +Z; the camera looks down -Z at yaw 0, hence 180 - yaw.
+    entity->position = m_player->Position();
+    entity->rotation.y = 180.0f - m_player->YawDegrees();
+    entity->visible = m_config.game.thirdPerson;
 }
 
 void Engine::TakeScreenshot() {
@@ -1017,6 +1094,100 @@ int Engine::RunHeadless(AppConfig& config) {
         }
     }
 
+    // Asset pipeline: generate the placeholder art into a scratch folder, load
+    // it back through the same library the renderer uses, and prove that an OBJ
+    // written by the engine can be read again byte-for-value.
+    bool assetPipelineOk = false;
+    {
+        namespace fs = std::filesystem;
+        const std::string root = "asset-selftest";
+        std::error_code ec;
+        fs::remove_all(root, ec);
+
+        std::string error;
+        asset::AssetLibrary library;
+        if (!asset::EnsurePlaceholderAssets(root, error)) {
+            FR_ERROR("Asset test failed: %s", error.c_str());
+        } else if (!library.Scan(root, error)) {
+            FR_ERROR("Asset test failed: %s", error.c_str());
+        } else {
+            const asset::MeshAsset* character = library.FindMesh("character");
+            const asset::TextureAsset* cloth = library.FindTexture("cloth");
+            const asset::TextureAsset* stone = library.FindTexture("stone");
+            const bool modelsLoaded = library.Meshes().size() >= 3 &&
+                                      character && !character->mesh.Empty() &&
+                                      character->mesh.boundsMax.y > 1.5f;
+            const bool texturesLoaded = library.Textures().size() >= 3 && cloth && stone &&
+                                        cloth->image.width > 0 && stone->image.height > 0;
+
+            // OBJ round-trip through the writer and parser.
+            bool objRoundTrip = false;
+            if (character) {
+                std::string writeError;
+                const std::string path = root + "/roundtrip.obj";
+                if (asset::SaveObj(path, character->mesh, "roundtrip", writeError)) {
+                    asset::MeshData reloaded;
+                    std::string readError;
+                    if (asset::LoadObj(path, reloaded, readError)) {
+                        objRoundTrip = reloaded.indices.size() == character->mesh.indices.size() &&
+                                       reloaded.vertices.size() == character->mesh.vertices.size();
+                    } else {
+                        FR_ERROR("OBJ reload failed: %s", readError.c_str());
+                    }
+                } else {
+                    FR_ERROR("OBJ write failed: %s", writeError.c_str());
+                }
+            }
+
+            assetPipelineOk = modelsLoaded && texturesLoaded && objRoundTrip && objRoundTrip;
+            FR_INFO("Asset test: %zu models, %zu textures, OBJ round-trip %s.", library.Meshes().size(),
+                    library.Textures().size(), objRoundTrip ? "ok" : "FAILED");
+        }
+        fs::remove_all(root, ec);
+        if (!assetPipelineOk) {
+            FR_ERROR("Smoke test failed: the asset pipeline is broken.");
+        }
+    }
+
+    // The art that ships (or gets generated) in the repository's asset folder
+    // should be readable too, not just the scratch copy above.
+    {
+        asset::AssetLibrary shipped;
+        std::string error;
+        const std::string root = ResolveAssetDirectory(config.assetsDir);
+        const bool scanned = shipped.Scan(root, error);
+        if (!scanned && shipped.Failures() > 0) {
+            FR_WARN("Bundled assets reported a problem: %s", error.c_str());
+        }
+        FR_INFO("Bundled assets: %zu models, %zu textures in '%s'.", shipped.Meshes().size(),
+                shipped.Textures().size(), root.c_str());
+    }
+
+    // Third-person camera: the rig must sit behind the player by the requested
+    // distance and never end up under the terrain.
+    bool cameraRigOk = false;
+    {
+        game::Player rigPlayer;
+        rigPlayer.Spawn(world.Terrain(), world.SpawnPoint());
+        rigPlayer.SetThirdPerson(true);
+        rigPlayer.SetThirdPersonDistance(5.0f);
+        const vec3 head = rigPlayer.Position() + vec3(0.0f, rigPlayer.EyeHeight(), 0.0f);
+        const float separation = glm::length(rigPlayer.Camera().Position() - head);
+        const float ground = world.Terrain().HeightAt(rigPlayer.Camera().Position().x,
+                                                      rigPlayer.Camera().Position().z);
+        cameraRigOk = separation > 3.5f && separation < 6.0f &&
+                      rigPlayer.Camera().Position().y > ground;
+        rigPlayer.SetThirdPerson(false);
+        const bool recentred =
+            glm::length(rigPlayer.Camera().Position() - head) < 1e-3f;
+        cameraRigOk = cameraRigOk && recentred;
+        FR_INFO("Camera rig: third person at %.1f m survives the ground, first person recentres.",
+                separation);
+        if (!cameraRigOk) {
+            FR_ERROR("Smoke test failed: the third-person camera rig is misplaced.");
+        }
+    }
+
     const float dt = 1.0f / 60.0f;
     const int jumpFrame = 20;
     const float startHours = world.Time().Hours();
@@ -1066,6 +1237,8 @@ int Engine::RunHeadless(AppConfig& config) {
     if (!heightfieldComplete) { FR_ERROR("Smoke test failed: heightfield sample count mismatch."); ok = false; }
     if (shaderFailures != 0) { FR_ERROR("Smoke test failed: shader assets could not be expanded."); ok = false; }
     if (!sceneRoundTrip) { FR_ERROR("Smoke test failed: scene serialisation is broken."); ok = false; }
+    if (!assetPipelineOk) { FR_ERROR("Smoke test failed: asset import is broken."); ok = false; }
+    if (!cameraRigOk) { FR_ERROR("Smoke test failed: camera modes are broken."); ok = false; }
     if (!moved) { FR_ERROR("Smoke test failed: player did not move forward."); ok = false; }
     if (!timeAdvanced) { FR_ERROR("Smoke test failed: time of day did not advance."); ok = false; }
     if (!frustumFront || frustumBehind || frustumFar) {
@@ -1124,7 +1297,8 @@ int Engine::RunHeadless(AppConfig& config) {
         FR_ERROR("Headless validation failed.");
         return 3;
     }
-    FR_INFO("Headless validation succeeded (spawn, heightfield, movement, time, vegetation).");
+    FR_INFO("Headless validation succeeded (spawn, heightfield, movement, time, vegetation, "
+            "scene, scripting, assets, cameras).");
     return 0;
 }
 

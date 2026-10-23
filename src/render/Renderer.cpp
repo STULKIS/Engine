@@ -1,5 +1,6 @@
 #include "render/Renderer.h"
 
+#include "asset/Placeholders.h"
 #include "core/Log.h"
 #include "math/Math.h"
 #include "render/GeometryBuilder.h"
@@ -45,6 +46,11 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
         FR_ERROR("Renderer initialization failed while creating the primitive meshes.");
         return false;
     }
+    if (!LoadAssets(assetDirectory)) {
+        FR_ERROR("Renderer initialization failed while loading assets from '%s'.",
+                 assetDirectory.c_str());
+        return false;
+    }
 
     if (!CreateTargets(m_windowWidth, m_windowHeight)) {
         FR_ERROR("Renderer initialization failed while creating render targets.");
@@ -66,6 +72,13 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
 
     m_foliageShader.Bind();
     m_foliageShader.SetInt("uShadowMap", 3);
+
+    m_objectShader.Bind();
+    m_objectShader.SetInt("uShadowMap", 3);
+
+    m_assetShader.Bind();
+    m_assetShader.SetInt("uShadowMap", 3);
+    m_assetShader.SetInt("uAlbedoTexture", 5);
 
     m_bloomThresholdShader.Bind();
     m_bloomThresholdShader.SetInt("uSceneTexture", 0);
@@ -155,6 +168,8 @@ bool Renderer::LoadPrograms(const std::string& assetDirectory) {
         {&m_shadowShader, "shadow.vert", "shadow.frag", "shadow"},
         {&m_shadowInstancedShader, "shadow_instanced.vert", "shadow.frag", "shadow-instanced"},
         {&m_objectShader, "object.vert", "object.frag", "object"},
+        {&m_assetShader, "asset.vert", "asset.frag", "asset"},
+        {&m_shadowAssetShader, "shadow_asset.vert", "shadow.frag", "shadow-asset"},
         {&m_bloomThresholdShader, "fullscreen.vert", "bloom_threshold.frag", "bloom-threshold"},
         {&m_bloomBlurShader, "fullscreen.vert", "bloom_blur.frag", "bloom-blur"},
         {&m_postShader, "fullscreen.vert", "post.frag", "post"},
@@ -202,7 +217,11 @@ void Renderer::BuildInstanceBuffers() {
         return;
     }
     for (const scene::Entity& entity : m_frame.entities->Entities()) {
-        if (!entity.alive) {
+        if (!entity.alive || !entity.visible) {
+            continue;
+        }
+        // Entities backed by an imported model are drawn by the asset pass.
+        if (!entity.mesh.empty() && m_assetMeshes.find(entity.mesh) != m_assetMeshes.end()) {
             continue;
         }
         const int index = static_cast<int>(entity.primitive);
@@ -222,6 +241,60 @@ void Renderer::BuildInstanceBuffers() {
             m_primitiveMeshes[i].UploadInstances(list);
         }
     }
+}
+
+bool Renderer::LoadAssets(const std::string& assetDirectory) {
+    std::string error;
+    // Placeholder art is written once so a fresh checkout has something to show.
+    if (!asset::EnsurePlaceholderAssets(assetDirectory, error)) {
+        FR_WARN("Could not write placeholder assets: %s", error.c_str());
+    }
+    if (!m_assets.Scan(assetDirectory, error) && !error.empty()) {
+        FR_WARN("Asset scan: %s", error.c_str());
+    }
+
+    int uploadedMeshes = 0;
+    for (const asset::MeshAsset& source : m_assets.Meshes()) {
+        render::MeshData data;
+        data.vertices.reserve(source.mesh.vertices.size());
+        for (const asset::Vertex& vertex : source.mesh.vertices) {
+            render::Vertex converted;
+            converted.position = vertex.position;
+            converted.normal = vertex.normal;
+            converted.uv = vertex.uv;
+            converted.color = vec4(1.0f);
+            data.vertices.push_back(converted);
+        }
+        data.indices = source.mesh.indices;
+        data.RecomputeBounds();
+
+        Mesh gpu;
+        if (!gpu.Create(data)) {
+            FR_WARN("Could not upload mesh '%s'.", source.name.c_str());
+            continue;
+        }
+        m_assetMeshes.emplace(source.name, std::move(gpu));
+        ++uploadedMeshes;
+    }
+
+    int uploadedTextures = 0;
+    for (const asset::TextureAsset& source : m_assets.Textures()) {
+        TextureDesc desc;
+        desc.generateMips = true;
+        desc.repeat = true;
+        Texture gpu;
+        if (!gpu.CreateRGBA8(source.image.width, source.image.height, source.image.pixels, true, desc)) {
+            FR_WARN("Could not upload texture '%s'.", source.name.c_str());
+            continue;
+        }
+        gpu.SetName(source.name);
+        m_assetTextures.emplace(source.name, std::move(gpu));
+        ++uploadedTextures;
+    }
+
+    FR_INFO("Asset pipeline: %d/%zu meshes and %d/%zu textures uploaded.", uploadedMeshes,
+            m_assets.Meshes().size(), uploadedTextures, m_assets.Textures().size());
+    return true;
 }
 
 bool Renderer::CreateTextures() {
@@ -259,8 +332,20 @@ void Renderer::Shutdown() {
     for (Mesh& mesh : m_primitiveMeshes) {
         mesh.Destroy();
     }
+    for (auto& entry : m_assetMeshes) {
+        entry.second.Destroy();
+    }
+    m_assetMeshes.clear();
+    for (auto& entry : m_assetTextures) {
+        entry.second.Destroy();
+    }
+    m_assetTextures.clear();
+    m_assets.Clear();
+
     m_skyShader.Destroy();
     m_objectShader.Destroy();
+    m_assetShader.Destroy();
+    m_shadowAssetShader.Destroy();
     m_terrainShader.Destroy();
     m_foliageShader.Destroy();
     m_waterShader.Destroy();
@@ -389,6 +474,7 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, scene::S
         RenderFoliagePass();
     }
     RenderObjectPass();
+    RenderAssetPass();
     if (config.showWater) {
         RenderWaterPass();
     }
@@ -523,6 +609,29 @@ void Renderer::RenderShadowPass() {
                 m_primitiveMeshes[i].DrawInstanced(count);
                 ++m_stats.shadowDrawCalls;
                 m_stats.shadowTriangles += m_primitiveMeshes[i].TriangleCount() * static_cast<size_t>(count);
+            }
+        }
+
+        // Imported meshes: one draw per caster, depth only.
+        if (m_frame.entities && !m_assetMeshes.empty()) {
+            bool bound = false;
+            for (const scene::Entity& entity : m_frame.entities->Entities()) {
+                if (!entity.alive || !entity.visible || !entity.castShadow || entity.mesh.empty()) {
+                    continue;
+                }
+                auto mesh = m_assetMeshes.find(entity.mesh);
+                if (mesh == m_assetMeshes.end()) {
+                    continue;
+                }
+                if (!bound) {
+                    m_shadowAssetShader.Bind();
+                    m_shadowAssetShader.SetMat4("uLightSpaceMatrix", lightSpace);
+                    bound = true;
+                }
+                m_shadowAssetShader.SetMat4("uModel", m_frame.entities->WorldMatrix(entity));
+                mesh->second.Draw();
+                ++m_stats.shadowDrawCalls;
+                m_stats.shadowTriangles += mesh->second.TriangleCount();
             }
         }
 
@@ -662,6 +771,57 @@ void Renderer::RenderObjectPass() {
         ++m_stats.drawCalls;
         m_stats.triangles += m_primitiveMeshes[i].TriangleCount() * static_cast<size_t>(count);
     }
+}
+
+void Renderer::RenderAssetPass() {
+    if (!m_frame.entities || m_assetMeshes.empty()) {
+        return;
+    }
+
+    bool bound = false;
+    for (const scene::Entity& entity : m_frame.entities->Entities()) {
+        if (!entity.alive || !entity.visible || entity.mesh.empty()) {
+            continue;
+        }
+        auto mesh = m_assetMeshes.find(entity.mesh);
+        if (mesh == m_assetMeshes.end()) {
+            continue;
+        }
+        if (!bound) {
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_BACK);
+            glPolygonMode(GL_FRONT_AND_BACK, m_frame.settings.wireframe ? GL_LINE : GL_FILL);
+
+            m_assetShader.Bind();
+            m_assetShader.SetMat4("uViewProj", m_frame.viewProj);
+            SetAtmosphereUniforms(m_assetShader);
+            SetShadowUniforms(m_assetShader);
+            bound = true;
+        }
+
+        const mat4 model = m_frame.entities->WorldMatrix(entity);
+        m_assetShader.SetMat4("uModel", model);
+        m_assetShader.SetMat3("uNormalMatrix", mat3(glm::transpose(glm::inverse(model))));
+        m_assetShader.SetVec3("uColor", entity.color);
+
+        const auto texture = entity.texture.empty() ? m_assetTextures.end()
+                                                    : m_assetTextures.find(entity.texture);
+        if (texture != m_assetTextures.end()) {
+            texture->second.Bind(5);
+            m_assetShader.SetInt("uHasTexture", 1);
+        } else {
+            m_assetShader.SetInt("uHasTexture", 0);
+        }
+
+        mesh->second.Draw();
+        ++m_stats.drawCalls;
+        m_stats.triangles += mesh->second.TriangleCount();
+    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 void Renderer::RenderWaterPass() {

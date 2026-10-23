@@ -4,6 +4,7 @@ build-*/
 cmake-build*/
 out/
 *.o
+# MSVC object files (note: OBJ *models* under assets/ are kept, see exception below)
 *.obj
 *.a
 *.lib
@@ -36,3 +37,6 @@ screenshots/
 *.swp
 __pycache__/
 
+# Imported models are content, not build output.
+!assets/models/*.obj
+!assets/models/**/*.obj

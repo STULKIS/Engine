@@ -92,7 +92,7 @@ void DebugUI::Draw(core::AppConfig& config, world::World& world, scene::Scene& e
             ImGui::Separator();
             DrawWorldPanel(world, actions);
             ImGui::Separator();
-            DrawScenePanel(config, entities, actions);
+            DrawScenePanel(config, entities, renderer, actions);
             ImGui::Separator();
             DrawRenderPanel(config, renderer);
             ImGui::Separator();
@@ -344,7 +344,8 @@ void DebugUI::DrawRenderPanel(core::AppConfig& config, render::Renderer& rendere
     }
 }
 
-void DebugUI::DrawScenePanel(core::AppConfig& config, scene::Scene& entities, DebugActions& actions) {
+void DebugUI::DrawScenePanel(core::AppConfig& config, scene::Scene& entities,
+                             render::Renderer& renderer, DebugActions& actions) {
     (void)config;
     if (!ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
@@ -416,6 +417,54 @@ void DebugUI::DrawScenePanel(core::AppConfig& config, scene::Scene& entities, De
     ImGui::SetNextItemWidth(220.0f);
     ImGui::ColorEdit3("Colour", &selected->color.x);
     ImGui::Checkbox("Cast shadow", &selected->castShadow);
+    ImGui::SameLine();
+    ImGui::Checkbox("Visible", &selected->visible);
+
+    // Imported model: selecting one replaces the primitive for this entity.
+    const auto& assets = renderer.Assets();
+    std::string currentMesh = selected->mesh.empty() ? "Primitive" : selected->mesh;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::BeginCombo("Model", currentMesh.c_str())) {
+        if (ImGui::Selectable("Primitive", selected->mesh.empty())) {
+            selected->mesh.clear();
+        }
+        for (const asset::MeshAsset& mesh : assets.Meshes()) {
+            const bool active = selected->mesh == mesh.name;
+            if (ImGui::Selectable(mesh.name.c_str(), active)) {
+                selected->mesh = mesh.name;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s  ·  %zu triangles", mesh.path.c_str(),
+                                  mesh.mesh.indices.size() / 3);
+            }
+        }
+        if (assets.Meshes().empty()) {
+            ImGui::TextDisabled("No models found in assets/models");
+        }
+        ImGui::EndCombo();
+    }
+
+    std::string currentTexture = selected->texture.empty() ? "Flat tint" : selected->texture;
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::BeginCombo("Texture", currentTexture.c_str())) {
+        if (ImGui::Selectable("Flat tint", selected->texture.empty())) {
+            selected->texture.clear();
+        }
+        for (const asset::TextureAsset& texture : assets.Textures()) {
+            const bool active = selected->texture == texture.name;
+            if (ImGui::Selectable(texture.name.c_str(), active)) {
+                selected->texture = texture.name;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s  ·  %dx%d", texture.path.c_str(), texture.image.width,
+                                  texture.image.height);
+            }
+        }
+        if (assets.Textures().empty()) {
+            ImGui::TextDisabled("No textures found in assets/textures");
+        }
+        ImGui::EndCombo();
+    }
 
     // Script attachment: a Unity-style behaviour picked by name, with its
     // exposed parameters turned into sliders generated from the registry.
@@ -480,6 +529,10 @@ void DebugUI::DrawPlayerPanel(core::AppConfig& config, game::Player& player, Deb
         ImGui::SliderFloat("Mouse sensitivity", &config.game.mouseSensitivity, 0.02f, 0.4f, "%.2f");
         ImGui::Checkbox("Invert Y", &config.game.invertY);
         ImGui::SameLine();
+        ImGui::Checkbox("Third person (V)", &config.game.thirdPerson);
+        ImGui::SetNextItemWidth(190.0f);
+        ImGui::SliderFloat("Camera distance", &config.game.thirdPersonDistance, 1.5f, 10.0f, "%.1f m");
+        ImGui::SameLine();
         if (ImGui::Button("Respawn")) {
             actions.respawnPlayer = true;
         }
@@ -498,6 +551,8 @@ void DebugUI::DrawControlsPanel(world::World& world, game::Player& player, rende
         ImGui::BulletText("WASD move, mouse look, Space jump, Shift sprint, Ctrl walk");
         ImGui::BulletText("F1 panel, F2 wireframe, F3 shadows, F4 foliage, F5 water");
         ImGui::BulletText("F6 pause time, F11 fullscreen, F12 screenshot, R respawn");
+        ImGui::BulletText("V switches between first and third person");
+        ImGui::BulletText("F8 saves the scene, F9 reloads it from disk");
         ImGui::BulletText("Esc releases the mouse (click the window to capture)");
     }
 }

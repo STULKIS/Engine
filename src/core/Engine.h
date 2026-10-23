@@ -47,6 +47,8 @@ private:
     void BuildDefaultScene();
     void SaveScene(const std::string& path);
     void LoadScene(const std::string& path);
+    // Keeps the visible player character in sync with the player and the camera.
+    void UpdatePlayerCharacter();
 
     int RunHeadless(AppConfig& config);
     int RunSelfTest();
@@ -59,6 +61,7 @@ private:
     std::unique_ptr<world::World> m_world;
     scene::Scene m_entities;
     scene::ScriptHost m_scripts;
+    scene::EntityId m_playerEntity = scene::kInvalidEntity;
     std::unique_ptr<game::Player> m_player;
     std::unique_ptr<ui::DebugUI> m_debugUI;
 
