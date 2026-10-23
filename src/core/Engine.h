@@ -43,6 +43,7 @@ private:
 
     int RunHeadless(AppConfig& config);
     int RunSelfTest();
+    int RunGLInfo(AppConfig& config);
 
     AppConfig m_config;
     std::unique_ptr<Window> m_window;

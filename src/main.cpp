@@ -19,8 +19,19 @@
 
 #if defined(_WIN32)
 #include <io.h>
+#include <windows.h>
 #else
 #include <unistd.h>
+#endif
+
+#if defined(_WIN32)
+// Hybrid-graphics laptops default to the integrated GPU, which on some machines
+// cannot create an OpenGL 4.5 context at all. These two exported symbols are the
+// documented way to ask NVIDIA/AMD drivers for the high-performance GPU.
+extern "C" {
+__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
 #endif
 
 namespace {
@@ -131,7 +142,7 @@ int main(int argc, char** argv) {
     FR_INFO("Exit code: %d", exitCode);
 
     const std::string lastError = frontier::core::Log::LastError();
-    const bool interactiveRun = !config.headless && !config.selftest;
+    const bool interactiveRun = !config.headless && !config.selftest && !config.glInfo;
     if (exitCode != 0 && interactiveRun) {
         ReportFailure("Frontier Engine could not start (exit code " + std::to_string(exitCode) + ").",
                       lastError, config.logFile);

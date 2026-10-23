@@ -8,6 +8,24 @@
 namespace frontier::core {
 namespace {
 
+// Resolves glGetString without the engine's GL loader (which is only loaded
+// after the window exists) so the context can be probed right here.
+using GLGetStringProc = const unsigned char* (*)(unsigned int);
+constexpr unsigned int kGLVersion = 0x1F02;
+
+const char* ProbeGLVersion() {
+    static GLGetStringProc getString = nullptr;
+    static bool resolved = false;
+    if (!resolved) {
+        getString = reinterpret_cast<GLGetStringProc>(SDL_GL_GetProcAddress("glGetString"));
+        resolved = true;
+    }
+    if (!getString) {
+        return nullptr;
+    }
+    return reinterpret_cast<const char*>(getString(kGLVersion));
+}
+
 void SetGLAttributes(bool vsync) {
     (void)vsync;
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -112,10 +130,53 @@ bool Window::Create(const std::string& title, int width, int height, bool fullsc
         return false;
     }
 
-    if (!SDL_GL_MakeCurrent(m_window, m_context)) {
-        FR_ERROR("SDL_GL_MakeCurrent failed: %s", SDL_GetError());
+    // SDL_GL_CreateContext already makes the new context current, so asking for
+    // it again is a no-op on a correct driver -- but some Windows drivers fail
+    // a redundant wglMakeCurrent for an already-current context, which used to
+    // abort start-up even though the context was perfectly usable. Only make it
+    // current when it really is not, and never treat that as fatal on its own:
+    // the context is verified by probing glGetString below.
+    std::string makeCurrentError;
+    if (SDL_GL_GetCurrentContext() != m_context) {
+        const int result = SDL_GL_MakeCurrent(m_window, m_context);
+        if (result != 0) {
+            makeCurrentError = SDL_GetError() ? SDL_GetError() : "";
+            FR_WARN("SDL_GL_MakeCurrent returned %d (%s); verifying the context directly.",
+                    result, makeCurrentError.empty() ? "no error reported by SDL" : makeCurrentError.c_str());
+        }
+    } else {
+        FR_DEBUG("Context already current after creation; skipping MakeCurrent.");
+    }
+
+    if (!ProbeGLVersion()) {
+        // Give the driver one clean retry before giving up: creating a context
+        // while another one is current is a known source of driver bugs.
+        FR_WARN("No usable OpenGL context after creation; recreating it once.");
+        SDL_GL_DeleteContext(m_context);
+        m_context = SDL_GL_CreateContext(m_window);
+        if (m_context && SDL_GL_GetCurrentContext() != m_context) {
+            SDL_GL_MakeCurrent(m_window, m_context);
+        }
+    }
+
+    const char* probedVersion = m_context ? ProbeGLVersion() : nullptr;
+    if (!probedVersion) {
+        FR_ERROR("No usable OpenGL context is current after creation.");
+        if (!makeCurrentError.empty()) {
+            FR_ERROR("wglMakeCurrent/SDL_GL_MakeCurrent reported: %s", makeCurrentError.c_str());
+        }
+        FR_ERROR("The window and context were created, but the driver will not "
+                 "activate the context for rendering.");
+        FR_ERROR("This is almost always a driver or session problem, not a setting:");
+        FR_ERROR("  1. Install the current GPU driver from the vendor (not Windows Update).");
+        FR_ERROR("  2. Remote desktop / RDP, virtual machines and Windows Sandbox often");
+        FR_ERROR("     cannot activate a hardware OpenGL 4.5 context; run on the local desktop.");
+        FR_ERROR("  3. On hybrid laptops, force the discrete GPU for frontier.exe.");
+        FR_ERROR("  4. Close tools that hook OpenGL (overlays, capture software) and retry.");
+        FR_ERROR("Run 'frontier --glinfo' afterwards to print the full GL environment.");
         return false;
     }
+    FR_INFO("OpenGL context active: %s", probedVersion);
 
     SDL_GL_SetSwapInterval(vsync ? 1 : 0);
     RefreshDrawableSize();

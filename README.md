@@ -225,6 +225,9 @@ to LDR if a render-target format cannot be created.
   downhill surface adherence, buoyancy/swimming, respawn, head bob.
 
 ### Tooling
+- `--glinfo` prints the SDL video driver, displays, context attributes, GL
+  vendor/renderer/version, profile and driver limits, then exits — the fastest
+  way to diagnose "it will not start" on a particular machine.
 - `--selftest` renders the full pipeline including the ImGui overlay, reads the
   back buffer and checks luminance, contrast and draw-call statistics, writing
   `screenshots/selftest.ppm` and exiting 0/3.
@@ -403,6 +406,7 @@ Useful launch variants:
 | `--wireframe` | off | start in wireframe mode |
 | `--headless[=frames]` | 120 frames | simulate without a window/GPU |
 | `--selftest[=frames]` | 45 frames | render for real, check the framebuffer, exit 0/3 |
+| `--glinfo` | off | print the SDL video/display and OpenGL environment, then exit |
 | `--demo-ui` | off | open the ImGui style demo |
 | `--help` | — | usage summary |
 
@@ -771,6 +775,15 @@ vendor site (Windows Update often ships an old one), make sure the game runs on
 the discrete GPU on laptops, and avoid remote desktop sessions, which frequently
 expose only OpenGL 1.1/3.3. Software Mesa users can try
 `MESA_GL_VERSION_OVERRIDE=4.5 MESA_GLSL_VERSION_OVERRIDE=450 ./frontier`.
+
+**`SDL_GL_MakeCurrent failed` / `No usable OpenGL context is current`.**
+The window and the 4.5 context were created, but the driver refused to activate
+it. The engine no longer treats a *redundant* `SDL_GL_MakeCurrent` as fatal
+(context creation already activates the context; some Windows drivers reject the
+second call) — if the context works it carries on and logs the version. If the
+context genuinely cannot be activated, `frontier --glinfo` prints the video
+driver, the displays, the GL strings and the driver limits, which is exactly
+what to attach to a bug report.
 
 **The window opens but the scene is black or has no shadows.**
 Start with `./frontier --safe-mode`, which disables MSAA, HDR and bloom and uses

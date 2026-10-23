@@ -70,6 +70,7 @@ struct AppConfig {
     int headlessFrames = 120;
     bool selftest = false;   // render a few frames and inspect the pixels
     int selftestFrames = 45;
+    bool glInfo = false;     // print the OpenGL/video environment and exit
     bool demoUI = false;
 };
 

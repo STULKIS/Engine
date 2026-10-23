@@ -154,6 +154,11 @@ int Engine::Run(AppConfig& config) {
     if (m_config.headless) {
         return RunHeadless(m_config);
     }
+    if (m_config.glInfo) {
+        const int exitCode = RunGLInfo(m_config);
+        Shutdown();
+        return exitCode;
+    }
 
     if (!Initialize(m_config)) {
         Shutdown();
@@ -598,6 +603,91 @@ FrameReport AnalyseFrame(const unsigned char* pixels, size_t pixelBytes, int wid
 }
 
 } // namespace
+
+int Engine::RunGLInfo(AppConfig& config) {
+    FR_INFO("OpenGL environment report");
+
+    SDL_version compiled{};
+    SDL_version linkedVersion{};
+    SDL_VERSION(&compiled);
+    SDL_GetVersion(&linkedVersion);
+    FR_INFO("SDL: compiled %d.%d.%d, linked %d.%d.%d", compiled.major, compiled.minor, compiled.patch,
+            linkedVersion.major, linkedVersion.minor, linkedVersion.patch);
+
+    if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
+        FR_ERROR("SDL video subsystem could not start: %s", SDL_GetError());
+        FR_ERROR("There is no usable display (no GPU driver, no desktop session, or a");
+        FR_ERROR("container without a display server). Start it from a local desktop.");
+        return 1;
+    }
+
+    const char* driver = SDL_GetCurrentVideoDriver();
+    FR_INFO("SDL video driver: %s", driver ? driver : "unknown");
+    const int displays = SDL_GetNumVideoDisplays();
+    FR_INFO("Displays: %d", displays);
+    for (int i = 0; i < displays; ++i) {
+        SDL_Rect bounds{};
+        SDL_GetDisplayBounds(i, &bounds);
+        SDL_Rect usable{};
+        SDL_GetDisplayUsableBounds(i, &usable);
+        SDL_DisplayMode mode{};
+        SDL_GetCurrentDisplayMode(i, &mode);
+        const char* name = SDL_GetDisplayName(i);
+        FR_INFO("  [%d] %s: %dx%d at (%d,%d), usable %dx%d, mode %dx%d @ %d Hz, format %s",
+                i, name ? name : "display", bounds.w, bounds.h, bounds.x, bounds.y,
+                usable.w, usable.h, mode.w, mode.h, mode.refresh_rate,
+                SDL_GetPixelFormatName(mode.format));
+    }
+
+    AppConfig infoConfig = config;
+    if (!m_window) {
+        m_window = std::make_unique<Window>();
+    }
+    const bool created = m_window->Create(infoConfig.window.title, infoConfig.window.width,
+                                          infoConfig.window.height, false, true, false);
+    if (!created) {
+        FR_ERROR("Window/context creation failed; the messages above say why.");
+        FR_ERROR("Run this report from a local desktop session with an up-to-date GPU driver.");
+        return 1;
+    }
+    FR_INFO("Window: %dx%d", m_window->Width(), m_window->Height());
+
+    if (!render::gl::LoadFunctions(reinterpret_cast<void* (*)(const char*)>(SDL_GL_GetProcAddress))) {
+        FR_ERROR("OpenGL entry points could not be resolved; the driver is not usable.");
+        return 1;
+    }
+
+    auto glString = [](GLenum name) {
+        const GLubyte* value = render::gl::glGetString(name);
+        return value ? reinterpret_cast<const char*>(value) : "(unavailable)";
+    };
+    FR_INFO("GL_VERSION:  %s", glString(GL_VERSION));
+    FR_INFO("GL_VENDOR:   %s", glString(GL_VENDOR));
+    FR_INFO("GL_RENDERER: %s", glString(GL_RENDERER));
+    FR_INFO("GLSL:        %s", glString(GL_SHADING_LANGUAGE_VERSION));
+
+    GLint value = 0;
+    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &value);
+    FR_INFO("Profile:     %s",
+            (value & GL_CONTEXT_CORE_PROFILE_BIT) ? "core" : "compatibility");
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &value);
+    FR_INFO("Max texture size: %d", value);
+    glGetIntegerv(GL_MAX_SAMPLES, &value);
+    FR_INFO("Max MSAA samples: %d", value);
+    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &value);
+    FR_INFO("Max colour attachments: %d", value);
+
+    GLint extensionCount = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &extensionCount);
+    FR_INFO("Extensions: %d", extensionCount);
+    GLint maxVertexAttribs = 0;
+    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVertexAttribs);
+    FR_INFO("Vertex attributes: %d", maxVertexAttribs);
+
+    FR_INFO("Report complete. If GL_VERSION is below 4.5 the engine cannot run; "
+            "update the GPU driver.");
+    return 0;
+}
 
 int Engine::RunSelfTest() {
     const int frames = std::max(5, m_config.selftestFrames);
