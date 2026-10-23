@@ -71,6 +71,8 @@ void ApplyQualityPreset(AppConfig& c, const std::string& preset) {
         c.render.shadowMapSize = 1024;
         c.render.viewDistance = 520.0f;
         c.render.bloom = false;
+        c.render.godRays = false;
+        c.render.shadowNearRadius = 32.0f;
         c.world.grassCount = 22000;
         c.world.treeCount = 600;
         c.world.rockCount = 240;
@@ -80,6 +82,7 @@ void ApplyQualityPreset(AppConfig& c, const std::string& preset) {
         c.render.shadowMapSize = 2048;
         c.render.viewDistance = 700.0f;
         c.render.bloom = true;
+        c.render.godRays = true;
         c.world.grassCount = 38000;
         c.world.treeCount = 800;
     } else if (preset == "high") {
@@ -88,6 +91,8 @@ void ApplyQualityPreset(AppConfig& c, const std::string& preset) {
         c.render.shadowMapSize = 2048;
         c.render.viewDistance = 900.0f;
         c.render.bloom = true;
+        c.render.godRays = true;
+        c.render.shadowNearRadius = 50.0f;
         c.world.grassCount = 60000;
         c.world.treeCount = 900;
     } else if (preset == "ultra") {
@@ -96,6 +101,8 @@ void ApplyQualityPreset(AppConfig& c, const std::string& preset) {
         c.render.shadowMapSize = 4096;
         c.render.viewDistance = 1300.0f;
         c.render.bloom = true;
+        c.render.godRays = true;
+        c.render.shadowNearRadius = 60.0f;
         c.world.grassCount = 100000;
         c.world.treeCount = 1400;
     } else {
@@ -148,6 +155,14 @@ bool ApplySetting(AppConfig& c, const std::string& fullKey, const std::string& v
         }
         return false;
     }
+    if (key == "render.shadownearradius") return ParseFloat(value, c.render.shadowNearRadius);
+    if (key == "render.specularstrength") return ParseFloat(value, c.render.specularStrength);
+    if (key == "render.warmedged") return ParseFloat(value, c.render.warmEdge);
+    if (key == "render.leaftranslucency") return ParseFloat(value, c.render.leafTranslucency);
+    if (key == "render.godrays") return ParseBool(value, c.render.godRays);
+    if (key == "render.godraystrength") return ParseFloat(value, c.render.godRayStrength);
+    if (key == "render.contrast") return ParseFloat(value, c.render.contrast);
+    if (key == "render.temperature") return ParseFloat(value, c.render.temperature);
     if (key == "render.celsteps") return ParseInt(value, c.render.celSteps);
     if (key == "render.outlines") return ParseBool(value, c.render.outlines);
     if (key == "render.outlinethickness") return ParseFloat(value, c.render.outlineThickness);
@@ -259,6 +274,14 @@ bool SaveConfigFile(const std::string& path, const AppConfig& c) {
          << "\nfogHeightFalloff = " << c.render.fogHeightFalloff
          << "\nviewDistance = " << c.render.viewDistance
          << "\nstyle = " << (c.render.style == RenderStyle::Anime ? "anime" : "realistic")
+         << "\nshadowNearRadius = " << c.render.shadowNearRadius
+         << "\nspecularStrength = " << c.render.specularStrength
+         << "\nwarmEdge = " << c.render.warmEdge
+         << "\nleafTranslucency = " << c.render.leafTranslucency
+         << "\ngodRays = " << (c.render.godRays ? "true" : "false")
+         << "\ngodRayStrength = " << c.render.godRayStrength
+         << "\ncontrast = " << c.render.contrast
+         << "\ntemperature = " << c.render.temperature
          << "\ncelSteps = " << c.render.celSteps
          << "\noutlines = " << (c.render.outlines ? "true" : "false")
          << "\noutlineThickness = " << c.render.outlineThickness
@@ -331,6 +354,10 @@ void PrintUsage(const char* exe) {
         "  --cel-steps=<n>        Cel shading bands for --style=anime (default 3)\n"
         "  --outline[=0|1]        Silhouette outlines for --style=anime\n"
         "  --quality=<name>       low | medium | high | ultra performance preset\n"
+        "  --god-rays[=0|1]       Screen-space sun shafts (default on)\n"
+        "  --shadow-radius=<m>    Near shadow cascade coverage (default 45)\n"
+        "  --contrast=<f>         Post contrast, 0.5..2 (default 1.05)\n"
+        "  --temperature=<f>      Colour temperature, -1 cool .. 1 warm (default 0)\n"
         "  --no-hdr               Disable the HDR scene target\n"
         "  --no-bloom             Disable bloom\n"
         "  --safe-mode            Low-end preset: no MSAA/HDR/bloom, 1024 shadow map,\n"
@@ -410,6 +437,10 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "log-file") { ApplySetting(config, "app.logfile", inferredValue(), value); continue; }
         if (key == "render-scale") { ApplySetting(config, "render.renderscale", inferredValue(), value); continue; }
         if (key == "style") { if (!ApplySetting(config, "render.style", inferredValue(), value)) { FR_WARN("Unknown style '%s' (use realistic or anime)", value.c_str()); } continue; }
+        if (key == "god-rays" || key == "godrays") { ApplySetting(config, "render.godrays", inferredValue(), value); continue; }
+        if (key == "shadow-radius") { ApplySetting(config, "render.shadownearradius", inferredValue(), value); continue; }
+        if (key == "contrast") { ApplySetting(config, "render.contrast", inferredValue(), value); continue; }
+        if (key == "temperature") { ApplySetting(config, "render.temperature", inferredValue(), value); continue; }
         if (key == "cel-steps") { ApplySetting(config, "render.celsteps", inferredValue(), value); continue; }
         if (key == "outline" || key == "outlines") { ApplySetting(config, "render.outlines", inferredValue(), value); continue; }
         if (key == "posterize") { ApplySetting(config, "render.posterize", inferredValue(), value); continue; }
@@ -460,6 +491,13 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
     config.render.viewDistance = std::clamp(config.render.viewDistance, 50.0f, 5000.0f);
     config.render.shadowMapSize = std::clamp(config.render.shadowMapSize, 256, 8192);
     config.render.celSteps = std::clamp(config.render.celSteps, 2, 8);
+    config.render.shadowNearRadius = std::clamp(config.render.shadowNearRadius, 10.0f, 120.0f);
+    config.render.specularStrength = std::clamp(config.render.specularStrength, 0.0f, 2.0f);
+    config.render.warmEdge = std::clamp(config.render.warmEdge, 0.0f, 2.0f);
+    config.render.leafTranslucency = std::clamp(config.render.leafTranslucency, 0.0f, 2.0f);
+    config.render.godRayStrength = std::clamp(config.render.godRayStrength, 0.0f, 3.0f);
+    config.render.contrast = std::clamp(config.render.contrast, 0.5f, 2.0f);
+    config.render.temperature = std::clamp(config.render.temperature, -1.0f, 1.0f);
     config.render.outlineThickness = std::clamp(config.render.outlineThickness, 0.5f, 6.0f);
     config.render.outlineStrength = std::clamp(config.render.outlineStrength, 0.0f, 1.0f);
     config.render.rimStrength = std::clamp(config.render.rimStrength, 0.0f, 2.0f);

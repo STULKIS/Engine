@@ -192,8 +192,12 @@ to LDR if a render-target format cannot be created.
 - Forward renderer on OpenGL 4.5 Core, no deprecated APIs.
 - Runtime GL loader — the engine links against no GL library and needs no GL
   development headers (only `SDL_GL_GetProcAddress`).
-- Directional sun shadows: fitted orthographic light frustum, texel snapping,
-  2048² (configurable) depth map, 3×3 PCF with slope-aware bias.
+- Directional sun shadows with **two cascades**: a tight near cascade (45 m by
+  default) that resolves leaves, rocks and the player, and a wide far cascade
+  for the landscape. Texel-snapped light frustums, configurable resolution
+  (2048² default), rotated 8-tap Poisson PCF with slope-aware bias. Splitting
+  the cascades is what removes the blocky shadow edges a single 200 m-wide
+  cascade produces at the same texture size.
 - HDR scene target (RGBA16F) with optional 2×/4×/8× MSAA and resolve.
 - Atmospheric sky: procedural Rayleigh-ish gradient, sun disk and glow, moon,
   twinkling stars, FBM cloud deck, dusk horizon tint.
@@ -207,10 +211,17 @@ to LDR if a render-target format cannot be created.
   mapping, exposure, vignette, saturating colour grade, optional posterise,
   sRGB encode.
 - **Stylised (NPR / anime) renderer** - a second look for the same scene, built
-  from the same passes: banded cel lighting with a hard shadow terminator, rim
-  light, silhouette ink outlines from resolved depth, a banded "painted" sky
-  with flat two-tone clouds and a flat sun disc, a softer tone curve that keeps
-  flat colour fields saturated. Toggle with `F7` or `--style=anime`.
+  from the same passes: banded cel lighting with a hard shadow terminator and
+  *tinted* (never black) shadow side, quantised specular highlight, rim light
+  gated by the lit side, a warm band at the cel terminator, foliage translucency
+  (backlit leaves), silhouette ink outlines from resolved depth, a banded
+  "painted" sky with flat two-tone clouds and a flat sun disc, screen-space sun
+  shafts, and a saturation-preserving tone curve. Toggle with `F7` or
+  `--style=anime`.
+- Stylised water: banded depth ramp, hard-edged foam with a dark rim line,
+  glitter-style specular instead of a smooth highlight.
+- Post grading: contrast, colour temperature, saturation, vignette, optional
+  posterisation.
 - Debug: wireframe mode, pass timings, draw-call/triangle/instance counters,
   PPM screenshot output.
 
@@ -221,11 +232,14 @@ original, there are no imported anime assets or third-party shaders.
 
 | | Realistic | Anime (NPR) |
 | --- | --- | --- |
-| Lighting | smooth Lambert + wrap + ambient | 2–8 quantised light bands, hard shadow terminator |
-| Shadows | 3×3 PCF, soft | PCF thresholded to a crisp two-tone shadow |
+| Lighting | smooth Lambert + wrap + ambient | 2–8 quantised light bands, hard shadow terminator, cool-tinted shadow side, quantised specular, terminator warm band |
+| Shadows | rotated 8-tap Poisson PCF, two cascades | PCF thresholded to a crisp two-tone shadow |
+| Atmosphere | height fog | sun shafts, banded fog toward the sun |
+| Foliage | lambert + wrap | plus light transmission through leaves |
 | Edges | none | depth-discontinuity ink outlines (thickness/strength adjustable) |
 | Sky | gradient + FBM cloud deck | 5-band painted gradient, flat two-tone clouds, flat sun disc with ring |
-| Tone | ACES filmic | softer shoulder, higher saturation, optional posterise |
+| Water | smooth depth tint, fresnel | banded depth, hard foam line, glitter specular |
+| Tone | ACES filmic | saturation-preserving neutral curve, optional posterise |
 
 ```bash
 ./frontier --style=anime                 # cel shading + ink outlines
@@ -432,11 +446,15 @@ Useful launch variants:
 | `--assets=<path>` | `assets` | shader directory root |
 | `--log-level=<level>` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
 | `--log-file=<path>` | `frontier.log` | optional log tee |
-| `--style=<realistic\|anime>` | realistic | render style (anime = cel shading + outlines) |
+| `--style=<realistic\|anime>` | realistic | render style (anime = cel shading + outlines + shafts) |
 | `--cel-steps=<n>` | 3 | light bands used by cel shading |
 | `--outline[=0\|1]` | on | silhouette outlines in anime style |
 | `--posterize=<n>` | 0 | quantise the final image (0 = off) |
-| `--quality=<low\|medium\|high\|ultra>` | high | performance preset (MSAA, render scale, shadow map, view distance, foliage counts) |
+| `--quality=<low\|medium\|high\|ultra>` | high | performance preset (MSAA, render scale, shadow map, view distance, foliage counts, god rays) |
+| `--god-rays[=0\|1]` | on | screen-space sun shafts |
+| `--shadow-radius=<m>` | 45 | coverage of the near shadow cascade |
+| `--contrast=<f>` | 1.05 | post contrast |
+| `--temperature=<f>` | 0.0 | colour temperature (−1 cool … +1 warm) |
 | `--no-hdr`, `--no-bloom`, `--no-fog` | off | disable those features |
 | `--safe-mode` | off | no MSAA/HDR/bloom, 1024 shadow map, 0.85 render scale, lighter world |
 | `--wireframe` | off | start in wireframe mode |

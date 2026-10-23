@@ -290,6 +290,17 @@ void DebugUI::DrawRenderPanel(core::AppConfig& config, render::Renderer& rendere
             config.render.shadowMapSize = shadowIndex == 0 ? 1024 : (shadowIndex == 1 ? 2048 : 4096);
         }
 
+        ImGui::Checkbox("God rays", &config.render.godRays);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150.0f);
+        ImGui::SliderFloat("Strength##godrays", &config.render.godRayStrength, 0.0f, 2.0f, "%.2f");
+        ImGui::SetNextItemWidth(190.0f);
+        ImGui::SliderFloat("Shadow near range", &config.render.shadowNearRadius, 15.0f, 100.0f, "%.0f m");
+        ImGui::SetNextItemWidth(190.0f);
+        ImGui::SliderFloat("Contrast", &config.render.contrast, 0.7f, 1.6f, "%.2f");
+        ImGui::SetNextItemWidth(190.0f);
+        ImGui::SliderFloat("Temperature", &config.render.temperature, -1.0f, 1.0f, "%.2f");
+
         const char* styleLabels[] = {"Realistic", "Anime (NPR)"};
         int styleIndex = config.render.style == core::RenderStyle::Anime ? 1 : 0;
         ImGui::SetNextItemWidth(190.0f);
@@ -308,6 +319,12 @@ void DebugUI::DrawRenderPanel(core::AppConfig& config, render::Renderer& rendere
             ImGui::SliderFloat("Outline strength", &config.render.outlineStrength, 0.0f, 1.0f, "%.2f");
             ImGui::SetNextItemWidth(190.0f);
             ImGui::SliderFloat("Rim light", &config.render.rimStrength, 0.0f, 1.5f, "%.2f");
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderFloat("Specular", &config.render.specularStrength, 0.0f, 2.0f, "%.2f");
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderFloat("Warm shadow edge", &config.render.warmEdge, 0.0f, 2.0f, "%.2f");
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderFloat("Leaf translucency", &config.render.leafTranslucency, 0.0f, 1.5f, "%.2f");
             ImGui::SetNextItemWidth(190.0f);
             ImGui::SliderInt("Posterize", &config.render.posterizeLevels, 0, 24);
         }

@@ -53,9 +53,15 @@ private:
     bool m_hdr = true;
 };
 
-// Directional light shadow map with a fitted orthographic projection.
+// Directional light shadows split into two cascades: a tight near cascade that
+// resolves fine detail (leaves, rocks, the player) and a wide far cascade for
+// mountains and the tree line. A single cascade covering the whole view distance
+// wastes almost all of its resolution, which is what makes shadow edges look
+// blocky; splitting them gives the near field roughly 4x the texel density.
 class ShadowMap {
 public:
+    static constexpr int kCascades = 2;
+
     ShadowMap() = default;
     ~ShadowMap();
 
@@ -66,21 +72,21 @@ public:
     void Destroy();
     bool Resize(int size);
 
-    void Bind() const;
+    void Bind(int cascade) const;
     void Unbind() const;
 
     // Fits a light-space matrix around the camera view and snaps it to texel
     // increments to reduce shadow shimmering.
-    mat4 ComputeLightMatrix(const vec3& sunDirection, const vec3& cameraPosition,
+    mat4 ComputeLightMatrix(int cascade, const vec3& sunDirection, const vec3& cameraPosition,
                             const vec3& cameraForward, float radius, float depth) const;
 
-    GLuint Texture() const { return m_depthTexture; }
+    GLuint Texture(int cascade = 0) const { return m_depthTextures[cascade]; }
     int Size() const { return m_size; }
     bool Valid() const { return m_fbo != 0; }
 
 private:
     GLuint m_fbo = 0;
-    GLuint m_depthTexture = 0;
+    GLuint m_depthTextures[kCascades] = {0, 0};
     int m_size = 0;
 };
 

@@ -282,13 +282,25 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, const co
     m_stats.shadowMapSize = m_shadowMap.Size();
 
     const world::LightingState& lighting = world.Lighting();
-    const float shadowRadius = std::min(config.viewDistance * 0.35f, 170.0f);
     const bool castShadows = config.showShadows && m_shadowMap.Valid() &&
                              lighting.shadowStrength > 0.01f;
-    m_frame.lightSpace = castShadows
-                             ? m_shadowMap.ComputeLightMatrix(lighting.lightDirection, camera.Position(),
-                                                              camera.Forward(), shadowRadius, 420.0f)
-                             : mat4(1.0f);
+
+    // Two cascades: the near one is fitted tightly around the camera so each
+    // leaf and rock gets a handful of shadow texels, the far one covers the
+    // landscape. Splitting is what removes the blocky shadow edges that a single
+    // 200 m-wide cascade produces at 2048 textures.
+    const float nearRadius = std::min(std::max(config.shadowNearRadius, 12.0f), 90.0f);
+    const float farRadius = std::min(config.viewDistance * 0.42f, 420.0f);
+    m_frame.cascadeSplit = nearRadius * 1.15f;
+    if (castShadows) {
+        m_frame.lightSpace = m_shadowMap.ComputeLightMatrix(0, lighting.lightDirection, camera.Position(),
+                                                            camera.Forward(), nearRadius, 300.0f);
+        m_frame.lightSpaceFar = m_shadowMap.ComputeLightMatrix(1, lighting.lightDirection, camera.Position(),
+                                                               camera.Forward(), farRadius, 700.0f);
+    } else {
+        m_frame.lightSpace = mat4(1.0f);
+        m_frame.lightSpaceFar = mat4(1.0f);
+    }
 
     const auto frameStart = Clock::now();
     if (castShadows) {
@@ -346,6 +358,10 @@ void Renderer::SetAtmosphereUniforms(Shader& shader) {
     shader.SetFloat("uCelSteps", static_cast<float>(m_frame.settings.celSteps));
     shader.SetFloat("uRimStrength", cel ? m_frame.settings.rimStrength : 0.0f);
     shader.SetVec3("uRimColor", vec3(0.62f, 0.78f, 1.0f));
+    // Cool, slightly violet shadow tint keeps material hue readable in shade.
+    shader.SetVec3("uShadowTint", vec3(0.46f, 0.50f, 0.72f));
+    shader.SetFloat("uSpecularStrength", cel ? m_frame.settings.specularStrength : 0.0f);
+    shader.SetFloat("uWarmEdge", cel ? m_frame.settings.warmEdge : 0.0f);
 }
 
 void Renderer::SetShadowUniforms(Shader& shader) {
@@ -353,69 +369,82 @@ void Renderer::SetShadowUniforms(Shader& shader) {
                          m_frame.world->Lighting().shadowStrength > 0.01f;
     shader.SetInt("uShadowEnabled", enabled ? 1 : 0);
     shader.SetMat4("uLightSpaceMatrix", m_frame.lightSpace);
-    shader.SetFloat("uShadowTexelSize", m_shadowMap.Size() > 0 ? 1.0f / static_cast<float>(m_shadowMap.Size()) : 0.0f);
+    shader.SetMat4("uLightSpaceMatrixFar", m_frame.lightSpaceFar);
+    const float texel = m_shadowMap.Size() > 0 ? 1.0f / static_cast<float>(m_shadowMap.Size()) : 0.0f;
+    shader.SetFloat("uShadowTexelSize", texel);
+    shader.SetFloat("uShadowTexelSizeFar", texel);
+    shader.SetFloat("uCascadeSplit", m_frame.cascadeSplit);
     shader.SetInt("uShadowMap", 3);
+    shader.SetInt("uShadowMapFar", 5);
     glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, m_shadowMap.Texture());
+    glBindTexture(GL_TEXTURE_2D, m_shadowMap.Texture(0));
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, m_shadowMap.Texture(1));
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void Renderer::RenderShadowPass() {
-    // Direct shadow map binding (the shadow map owns a raw texture id).
-    m_shadowMap.Bind();
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-    // Render both sides of open geometry (terrain, grass cards) so mountains and
-    // tree canopies cast onto the scene. Bias is handled in the fragment shaders.
-    glDisable(GL_CULL_FACE);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    m_shadowShader.Bind();
-    m_shadowShader.SetMat4("uLightSpaceMatrix", m_frame.lightSpace);
-
-    // Terrain.
-    glActiveTexture(GL_TEXTURE0);
-    m_shadowShader.SetMat4("uModel", mat4(1.0f));
     world::World* world = m_frame.world;
     m_stats.shadowDrawCalls = 0;
     m_stats.shadowTriangles = 0;
-    if (world->Terrain().Mesh().Valid()) {
-        world->Terrain().Mesh().Draw();
-        ++m_stats.shadowDrawCalls;
-        m_stats.shadowTriangles += world->Terrain().Mesh().TriangleCount();
-    }
 
-    // Instanced casters.
-    m_shadowInstancedShader.Bind();
-    m_shadowInstancedShader.SetMat4("uLightSpaceMatrix", m_frame.lightSpace);
-    m_shadowInstancedShader.SetFloat("uTime", m_frame.time);
-    m_shadowInstancedShader.SetVec3("uWindDirection", world->WindDirection());
-    m_shadowInstancedShader.SetFloat("uWindStrength", world->WindStrength());
+    for (int cascade = 0; cascade < ShadowMap::kCascades; ++cascade) {
+        const mat4& lightSpace = cascade == 0 ? m_frame.lightSpace : m_frame.lightSpaceFar;
 
-    if (m_frame.settings.shadowsFromFoliage && m_frame.settings.showFoliage) {
-        for (const scene::FoliageSet& set : world->Vegetation().Sets()) {
-            if (!set.castsShadow) {
-                continue;
-            }
-            for (size_t lod = 0; lod < set.meshes.size(); ++lod) {
-                // Far billboards are not worth shadow casting.
-                if (lod >= 2 || lod >= set.visibleCounts.size()) {
+        m_shadowMap.Bind(cascade);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+        // Render both sides of open geometry (terrain, grass cards) so mountains
+        // and tree canopies cast onto the scene. Bias is handled in the shaders.
+        glDisable(GL_CULL_FACE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        m_shadowShader.Bind();
+        m_shadowShader.SetMat4("uLightSpaceMatrix", lightSpace);
+
+        glActiveTexture(GL_TEXTURE0);
+        m_shadowShader.SetMat4("uModel", mat4(1.0f));
+        if (world->Terrain().Mesh().Valid()) {
+            world->Terrain().Mesh().Draw();
+            ++m_stats.shadowDrawCalls;
+            m_stats.shadowTriangles += world->Terrain().Mesh().TriangleCount();
+        }
+
+        // Instanced casters. The far cascade uses the cheap LODs only.
+        m_shadowInstancedShader.Bind();
+        m_shadowInstancedShader.SetMat4("uLightSpaceMatrix", lightSpace);
+        m_shadowInstancedShader.SetFloat("uTime", m_frame.time);
+        m_shadowInstancedShader.SetVec3("uWindDirection", world->WindDirection());
+        m_shadowInstancedShader.SetFloat("uWindStrength", world->WindStrength());
+
+        if (m_frame.settings.shadowsFromFoliage && m_frame.settings.showFoliage) {
+            for (const scene::FoliageSet& set : world->Vegetation().Sets()) {
+                if (!set.castsShadow) {
                     continue;
                 }
-                const int count = set.visibleCounts[lod];
-                if (count <= 0) {
-                    continue;
+                for (size_t lod = 0; lod < set.meshes.size(); ++lod) {
+                    // Far billboards never cast; the far cascade skips the
+                    // densest tier to keep its cost bounded.
+                    const size_t maxLod = cascade == 0 ? 2u : 2u;
+                    if (lod >= maxLod || lod >= set.visibleCounts.size()) {
+                        continue;
+                    }
+                    const int count = set.visibleCounts[lod];
+                    if (count <= 0) {
+                        continue;
+                    }
+                    set.meshes[lod].DrawInstanced(count);
+                    ++m_stats.shadowDrawCalls;
+                    m_stats.shadowTriangles += set.meshes[lod].TriangleCount() * static_cast<size_t>(count);
                 }
-                set.meshes[lod].DrawInstanced(count);
-                ++m_stats.shadowDrawCalls;
-                m_stats.shadowTriangles += set.meshes[lod].TriangleCount() * static_cast<size_t>(count);
             }
         }
-    }
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+    }
     m_shadowMap.Unbind();
 }
 
@@ -493,6 +522,7 @@ void Renderer::RenderFoliagePass() {
     m_foliageShader.SetVec3("uWindDirection", world->WindDirection());
     m_foliageShader.SetFloat("uWindStrength", world->WindStrength());
     m_foliageShader.SetInt("uWindEnabled", 1);
+    m_foliageShader.SetFloat("uTranslucency", m_frame.settings.leafTranslucency);
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, m_shadowMap.Texture());
 
@@ -630,6 +660,29 @@ void Renderer::RenderPostPass() {
     m_postShader.SetFloat("uSaturation", cel ? m_config.saturation * 1.08f : m_config.saturation);
     m_postShader.SetInt("uPosterizeLevels", m_config.posterizeLevels);
     m_postShader.SetFloat("uVignette", cel ? 0.12f : 0.28f);
+
+    // Sun position in screen space, for the light shafts. The sun is projected
+    // from far away along its direction, so it stays put as the camera walks.
+    const world::LightingState& lighting = m_frame.world->Lighting();
+    const vec3 sunWorld = m_frame.cameraPos + lighting.sun.position * 3000.0f;
+    const vec4 sunClip = m_frame.viewProj * vec4(sunWorld, 1.0f);
+    vec2 sunScreen(0.5f, 0.5f);
+    float sunVisibility = 0.0f;
+    if (sunClip.w > 0.0f) {
+        const vec3 ndc = vec3(sunClip) / sunClip.w;
+        sunScreen = vec2(ndc.x * 0.5f + 0.5f, ndc.y * 0.5f + 0.5f);
+        const bool onScreen = sunScreen.x > -0.15f && sunScreen.x < 1.15f &&
+                              sunScreen.y > -0.15f && sunScreen.y < 1.15f;
+        sunVisibility = onScreen ? std::clamp(lighting.sun.elevationDegrees / 12.0f, 0.0f, 1.0f) : 0.0f;
+    }
+
+    m_postShader.SetInt("uGodRaysEnabled", (cel && m_config.godRays) ? 1 : 0);
+    m_postShader.SetFloat("uGodRayStrength", m_config.godRayStrength);
+    m_postShader.SetVec2("uSunScreenPos", sunScreen);
+    m_postShader.SetFloat("uSunVisibility", sunVisibility);
+    m_postShader.SetVec3("uSunColorPost", lighting.sun.color);
+    m_postShader.SetFloat("uContrast", m_config.contrast);
+    m_postShader.SetFloat("uTemperature", m_config.temperature);
     m_fullscreenTriangle.Draw();
     ++m_stats.drawCalls;
 

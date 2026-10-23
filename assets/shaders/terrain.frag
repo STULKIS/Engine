@@ -29,6 +29,15 @@ uniform mat4 uLightSpaceMatrix;
 uniform float uShadowTexelSize;
 uniform int uShadowEnabled;
 
+uniform sampler2D uShadowMapFar;
+uniform mat4 uLightSpaceMatrixFar;
+uniform float uShadowTexelSizeFar;
+uniform float uCascadeSplit;
+uniform vec3 uShadowTint;
+uniform float uSpecularStrength;
+uniform float uWarmEdge;
+
+
 // Stylised (NPR) shading controls. The realistic path ignores these.
 uniform int uCelShading;
 uniform float uCelSteps;

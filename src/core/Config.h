@@ -38,6 +38,18 @@ struct RenderConfig {
     bool showShadows = true;
     bool shadowsFromFoliage = true;
 
+    // --- Lighting / shadows --------------------------------------------------
+    float shadowNearRadius = 45.0f;   // metres covered by the near shadow cascade
+    float specularStrength = 0.9f;    // stylised highlight
+    float warmEdge = 0.5f;            // warm band at the cel terminator
+    float leafTranslucency = 0.65f;   // light through foliage
+
+    // --- Post ---------------------------------------------------------------
+    bool godRays = true;
+    float godRayStrength = 0.5f;
+    float contrast = 1.05f;
+    float temperature = 0.0f;         // -1 cool .. +1 warm
+
     // --- Stylised (NPR) rendering -------------------------------------------
     RenderStyle style = RenderStyle::Realistic;
     int celSteps = 3;                 // light bands in cel shading (2..8)

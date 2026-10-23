@@ -197,24 +197,26 @@ bool ShadowMap::Create(int size) {
         FR_WARN("Shadow map size %d clamped to %d (driver limit %d).", size, m_size, maxTextureSize);
     }
 
-    glGenTextures(1, &m_depthTexture);
-    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_size, m_size, 0,
-                 GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-    // The shaders sample the depth texture as a regular sampler2D and compare
-    // manually for a 3x3 PCF kernel. A depth texture with compare mode NONE is
-    // only texture-complete with NEAREST filtering -- LINEAR would make the
-    // texture incomplete on strict drivers and sampling would return 0.0,
-    // which looks like "everything is in shadow".
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    for (int cascade = 0; cascade < kCascades; ++cascade) {
+        glGenTextures(1, &m_depthTextures[cascade]);
+        glBindTexture(GL_TEXTURE_2D, m_depthTextures[cascade]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_size, m_size, 0,
+                     GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+        // The shaders sample the depth texture as a regular sampler2D and compare
+        // manually. A depth texture with compare mode NONE is only
+        // texture-complete with NEAREST filtering -- LINEAR would make the
+        // texture incomplete on strict drivers and sampling would return 0.0,
+        // which looks like "everything is in shadow".
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
 
     glGenFramebuffers(1, &m_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTexture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTextures[0], 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     if (CheckFramebuffer("shadow-map") != GL_FRAMEBUFFER_COMPLETE) {
@@ -222,7 +224,7 @@ bool ShadowMap::Create(int size) {
         return false;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    FR_INFO("Shadow map created at %dx%d.", m_size, m_size);
+    FR_INFO("Shadow maps created: %d cascades at %dx%d.", kCascades, m_size, m_size);
     return true;
 }
 
@@ -231,9 +233,11 @@ void ShadowMap::Destroy() {
         glDeleteFramebuffers(1, &m_fbo);
         m_fbo = 0;
     }
-    if (m_depthTexture) {
-        glDeleteTextures(1, &m_depthTexture);
-        m_depthTexture = 0;
+    for (int cascade = 0; cascade < kCascades; ++cascade) {
+        if (m_depthTextures[cascade]) {
+            glDeleteTextures(1, &m_depthTextures[cascade]);
+            m_depthTextures[cascade] = 0;
+        }
     }
     m_size = 0;
 }
@@ -245,8 +249,13 @@ bool ShadowMap::Resize(int size) {
     return Create(size);
 }
 
-void ShadowMap::Bind() const {
+void ShadowMap::Bind(int cascade) const {
+    if (cascade < 0 || cascade >= kCascades) {
+        cascade = 0;
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                           m_depthTextures[cascade], 0);
     glViewport(0, 0, m_size, m_size);
 }
 
@@ -254,8 +263,9 @@ void ShadowMap::Unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-mat4 ShadowMap::ComputeLightMatrix(const vec3& sunDirection, const vec3& cameraPosition,
+mat4 ShadowMap::ComputeLightMatrix(int cascade, const vec3& sunDirection, const vec3& cameraPosition,
                                    const vec3& cameraForward, float radius, float depth) const {
+    (void)cascade;
     const vec3 dir = glm::normalize(sunDirection);
     const vec3 center = cameraPosition + cameraForward * radius * 0.45f;
 

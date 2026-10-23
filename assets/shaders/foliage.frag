@@ -25,8 +25,18 @@ uniform mat4 uLightSpaceMatrix;
 uniform float uShadowTexelSize;
 uniform int uShadowEnabled;
 
+uniform sampler2D uShadowMapFar;
+uniform mat4 uLightSpaceMatrixFar;
+uniform float uShadowTexelSizeFar;
+uniform float uCascadeSplit;
+uniform vec3 uShadowTint;
+uniform float uSpecularStrength;
+uniform float uWarmEdge;
+
+
 // Stylised (NPR) shading controls. The realistic path ignores these.
 uniform int uCelShading;
+uniform float uTranslucency;
 uniform float uCelSteps;
 uniform float uRimStrength;
 uniform vec3 uRimColor;
@@ -54,9 +64,11 @@ void main() {
     float shadow = SampleShadow(vWorldPos, N, 0.0012);
     vec3 lit = ApplySunlight(albedo, N, vWorldPos, shadow);
 
-    // Back-lit translucency for grass blades and leaves.
-    float backlight = pow(max(dot(normalize(uSunDirection), N), 0.0), 2.0);
-    lit += uSunColor * uSunIntensity * backlight * albedo * 0.09;
+    // Back-lit translucency for grass blades and leaves: the sun shining
+    // through thin geometry, which is what makes foliage glow at golden hour.
+    float backlight = BacklightTerm(N, vWorldPos);
+    lit += uSunColor * uSunIntensity * albedo * backlight * uTranslucency *
+           (0.55 + 0.45 * saturate(dot(N, normalize(uCameraPos - vWorldPos)) * -1.0 + 1.0));
 
     lit = ApplyFog(lit, vWorldPos);
     oColor = vec4(lit, 1.0);

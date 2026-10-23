@@ -65,7 +65,9 @@ private:
         float time = 0.0f;
         mat4 viewProj{1.0f};
         mat4 view{1.0f};
-        mat4 lightSpace{1.0f};
+        mat4 lightSpace{1.0f};      // near cascade
+        mat4 lightSpaceFar{1.0f};   // far cascade
+        float cascadeSplit = 60.0f; // world units where the far cascade takes over
         vec3 cameraPos{0.0f};
         float aspect = 1.0f;
         int sceneWidth = 0;
