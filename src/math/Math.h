@@ -1,6 +1,18 @@
 // Frontier Engine - math aliases and helpers built on GLM.
 #pragma once
 
+// windows.h defines min()/max() as macros unless NOMINMAX is set before the
+// first include, which breaks every std::max/std::min below (and in GLM).
+// The build also defines these on the command line for all Windows targets.
+#if defined(_WIN32)
+#  ifndef NOMINMAX
+#    define NOMINMAX 1
+#  endif
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN 1
+#  endif
+#endif
+
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>

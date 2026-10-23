@@ -171,6 +171,14 @@ if(WIN32)
     target_compile_definitions(frontier PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# windows.h's min()/max() macros would break std::max/std::min and GLM. Define
+# NOMINMAX (and WIN32_LEAN_AND_MEAN) for every translation unit, not just the
+# ones that happen to include our math header first.
+if(WIN32)
+    target_compile_definitions(frontier PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_compile_definitions(frontier_imgui PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
 # GL entry points are resolved through SDL_GL_GetProcAddress; on Linux the
 # dynamic loader still wants libdl for SDL's own dlsym usage.
 if(UNIX AND NOT APPLE)
