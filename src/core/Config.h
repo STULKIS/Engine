@@ -97,6 +97,7 @@ struct AppConfig {
     std::string logLevel = "info";
     std::string logFile = "derecho.log";
     std::string assetsDir = "assets";
+    bool editor = true;      // start in the in-engine editor (--editor=0 for game-only)
     bool headless = false;   // run N frames without presenting (CI smoke test)
     int headlessFrames = 120;
     bool selftest = false;   // render a few frames and inspect the pixels

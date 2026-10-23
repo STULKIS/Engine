@@ -196,6 +196,7 @@ bool ApplySetting(AppConfig& c, const std::string& fullKey, const std::string& v
     if (key == "app.loglevel") { c.logLevel = Lower(Trim(value)); return true; }
     if (key == "app.logfile") { c.logFile = Trim(value); return true; }
     if (key == "app.assetsdir") { c.assetsDir = Trim(value); return true; }
+    if (key == "app.editor") return ParseBool(value, c.editor);
     if (key == "app.headless") return ParseBool(value, c.headless);
     if (key == "app.headlessframes") return ParseInt(value, c.headlessFrames);
     if (key == "app.demoui") return ParseBool(value, c.demoUI);
@@ -323,7 +324,8 @@ bool SaveConfigFile(const std::string& path, const AppConfig& c) {
          << "[app]\n"
          << "logLevel = " << c.logLevel
          << "\nlogFile = " << c.logFile
-         << "\nassetsDir = " << c.assetsDir << "\n";
+         << "\nassetsDir = " << c.assetsDir
+         << "\neditor = " << (c.editor ? "true" : "false") << "\n";
     return true;
 }
 
@@ -344,6 +346,7 @@ void PrintUsage(const char* exe) {
         "  --fov=<degrees>        Vertical field of view (default 68)\n"
         "  --sensitivity=<f>      Mouse sensitivity (default 0.11)\n"
         "  --camera=<mode>        first or third person (toggle in game with V)\n"
+        "  --editor[=0|1]         start in the editor (default on); --play skips it\n"
         "  --camera-distance=<m>  Third-person distance (default 4.5)\n"
         "  --view-distance=<m>    Far plane / culling distance (default 900)\n"
         "  --terrain-resolution=<n> Terrain quads per side (default 256)\n"
@@ -433,6 +436,8 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "day-length") { ApplySetting(config, "world.daylengthminutes", inferredValue(), value); continue; }
         if (key == "fov") { ApplySetting(config, "game.fov", inferredValue(), value); continue; }
         if (key == "sensitivity") { ApplySetting(config, "game.mousesensitivity", inferredValue(), value); continue; }
+        if (key == "editor") { ApplySetting(config, "app.editor", inferredValue(), value); continue; }
+        if (key == "play" || key == "no-editor") { ApplySetting(config, "app.editor", "false", value); continue; }
         if (key == "camera") {
             const std::string mode = Lower(Trim(value));
             if (mode == "first" || mode == "firstperson" || mode == "fps") {

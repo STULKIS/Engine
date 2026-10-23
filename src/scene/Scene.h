@@ -83,6 +83,14 @@ public:
     bool Save(const std::string& path, std::string& error) const;
     bool Load(const std::string& path, std::string& error);
 
+    // The same JSON the file holds, in memory. Used for play-mode snapshots and
+    // for the editor's undo-free restore on Stop.
+    std::string Serialize() const;
+    bool Deserialize(const std::string& text, std::string& error);
+
+    // Copies an entity and its children; the copy becomes a sibling.
+    EntityId Duplicate(EntityId id);
+
 private:
     std::vector<Entity> m_entities;
     EntityId m_nextId = 1;

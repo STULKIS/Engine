@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 
 namespace derecho::scene {
 
@@ -172,7 +174,7 @@ std::string Scene::UniqueName(const std::string& base) const {
     return candidate;
 }
 
-bool Scene::Save(const std::string& path, std::string& error) const {
+std::string Scene::Serialize() const {
     JsonValue root = JsonValue::MakeObject();
     root["format"] = JsonValue("derecho.scene");
     root["version"] = JsonValue(1);
@@ -217,30 +219,41 @@ bool Scene::Save(const std::string& path, std::string& error) const {
         entities.Push(std::move(item));
     }
     root["entities"] = std::move(entities);
+    return root.Serialize(2);
+}
 
-    if (!root.SaveToFile(path, error)) {
+bool Scene::Save(const std::string& path, std::string& error) const {
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        error = "could not open '" + path + "' for writing";
+        return false;
+    }
+    const std::string text = Serialize();
+    file.write(text.data(), static_cast<std::streamsize>(text.size()));
+    if (!file) {
+        error = "failed while writing '" + path + "'";
         return false;
     }
     DE_INFO("Scene saved: %s (%zu entities).", path.c_str(), AliveCount());
     return true;
 }
 
-bool Scene::Load(const std::string& path, std::string& error) {
+bool Scene::Deserialize(const std::string& text, std::string& error) {
     JsonValue root;
-    if (!root.LoadFromFile(path, error)) {
+    if (!root.Parse(text, error)) {
         return false;
     }
     const std::string format = root.GetString("format", "");
     // Scenes written before the engine was renamed used "frontier.scene"; keep
     // reading them so existing work is not stranded by a branding change.
     if (format != "derecho.scene" && format != "frontier.scene") {
-        error = "'" + path + "' is not a Derecho scene file (format = '" + format + "')";
+        error = "not a Derecho scene file (format = '" + format + "')";
         return false;
     }
 
     const JsonValue* entities = root.Find("entities");
     if (!entities || !entities->IsArray()) {
-        error = "'" + path + "' has no entities array";
+        error = "scene has no entities array";
         return false;
     }
 
@@ -287,9 +300,61 @@ bool Scene::Load(const std::string& path, std::string& error) {
 
     m_nextId = std::max(m_nextId, static_cast<EntityId>(highest + 1));
     m_nextId = std::max(m_nextId, static_cast<EntityId>(root.GetInt("nextEntityId", 1)));
+    return true;
+}
+
+bool Scene::Load(const std::string& path, std::string& error) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        error = "could not open '" + path + "'";
+        return false;
+    }
+    std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (!Deserialize(text, error)) {
+        error = "'" + path + "': " + error;
+        return false;
+    }
     SetPath(path);
     DE_INFO("Scene loaded: %s (%zu entities).", path.c_str(), AliveCount());
     return true;
+}
+
+EntityId Scene::Duplicate(EntityId id) {
+    const Entity* source = Find(id);
+    if (!source) {
+        return kInvalidEntity;
+    }
+    // Copy without the identity, then let Create assign the id and defer the
+    // parent fix-up until the copy exists.
+    const EntityId copyId = Create(UniqueName(source->name), source->primitive, source->position);
+    Entity* copy = Find(copyId);
+    if (!copy) {
+        return kInvalidEntity;
+    }
+    const std::string name = copy->name;
+    *copy = *source;
+    copy->id = copyId;
+    copy->alive = true;
+    copy->name = name;
+    copy->parent = source->parent;
+
+    // Children follow their parent into the copy.
+    const std::vector<Entity> snapshot = m_entities;
+    for (const Entity& child : snapshot) {
+        if (!child.alive || child.parent != id) {
+            continue;
+        }
+        const EntityId childCopy = Create(UniqueName(child.name), child.primitive, child.position);
+        if (Entity* target = Find(childCopy)) {
+            const std::string childName = target->name;
+            *target = child;
+            target->id = childCopy;
+            target->alive = true;
+            target->name = childName;
+            target->parent = copyId;
+        }
+    }
+    return copyId;
 }
 
 } // namespace derecho::scene

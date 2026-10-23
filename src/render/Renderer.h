@@ -60,6 +60,14 @@ public:
     const asset::AssetLibrary& Assets() const { return m_assets; }
     // GL handle of the branding logo (0 when it is unavailable).
     unsigned int LogoTextureId() const { return m_logoTexture.Id(); }
+    // The composited frame (tone mapped, outlines, post) as a texture. The
+    // editor shows this inside its viewport panel.
+    unsigned int FrameTexture() const { return m_presentTexture; }
+    // In editor mode the frame is only sampled by the viewport panel, so the
+    // full-window blit is skipped (no slivers of the scene between panels).
+    void SetPresentEnabled(bool enabled) { m_presentEnabled = enabled; }
+    // GL handle of an imported texture (0 when it is not loaded), for thumbnails.
+    unsigned int AssetTextureId(const std::string& name) const;
     int OutputWidth() const { return m_windowWidth; }
     int OutputHeight() const { return m_windowHeight; }
     bool Ready() const { return m_ready; }
@@ -102,6 +110,9 @@ private:
     void BuildInstanceBuffers();
     void RenderBloomPass();
     void RenderPostPass();
+    // Copies the composited frame to the window's default framebuffer.
+    void PresentToScreen();
+    bool EnsurePresentTarget(int width, int height);
 
     void SetAtmosphereUniforms(Shader& shader);
     void SetShadowUniforms(Shader& shader);
@@ -136,6 +147,12 @@ private:
     std::unordered_map<std::string, Mesh> m_assetMeshes;
     std::unordered_map<std::string, Texture> m_assetTextures;
     SceneTarget m_sceneTarget;
+    // Composited frame, blitted to the window and sampled by the editor.
+    unsigned int m_presentFbo = 0;
+    unsigned int m_presentTexture = 0;
+    int m_presentWidth = 0;
+    int m_presentHeight = 0;
+    bool m_presentEnabled = true;
     ShadowMap m_shadowMap;
     BloomChain m_bloom;
 

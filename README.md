@@ -294,6 +294,33 @@ depth resolve, so it is essentially free next to the terrain and foliage.
   second, asserts it advanced the expected angle, and asserts an entity with no
   script stayed untouched.
 
+### In-engine editor
+The engine opens in an editor, not straight into the game. Press **Play** (or
+use `--play` / `--editor=0` to skip it) to run the level.
+
+- **Layout:** menu bar, toolbar, and fixed panels — Hierarchy (with parenting),
+  Inspector, Asset browser, Console and Statistics around a live Viewport.
+- **Viewport:** shows the real composited frame (tone mapping, cel shading,
+  outlines and all) letterboxed to the panel, with click-to-select, an orange
+  selection outline, and a three-axis **Move / Rotate / Scale gizmo** (`W`, `E`,
+  `R`). Right-mouse drag looks, `WASD`/`Q`/`E` fly, `Shift` boosts, the wheel
+  changes speed, and the camera is kept above the terrain.
+- **Play-in-editor:** Play snapshots the scene, captures the mouse and starts the
+  simulation from wherever the editor camera is looking; Pause freezes the
+  simulation; Stop restores the snapshot exactly and returns the camera.
+  `Esc` also stops. The compact debug overlay stays available with `F1`.
+- **Editing:** add empty primitives or any imported model, duplicate (children
+  come along), delete, rename, edit transforms, pick a model and albedo texture,
+  toggle visibility and shadow casting, attach scripts and tune their parameters,
+  and focus the camera on a selection (`F` or the Focus button).
+- **Console:** the engine's log with level filtering and follow-tail, generated
+  from a ring buffer inside the logger.
+- **Scene I/O:** Save/Reload buttons and `F8`/`F9`; the menu bar shows the
+  current scene path and entity count.
+- **`--headless` covers the parts that need no GPU:** duplicating entities with
+  their children, the play-mode snapshot round-trip, and the picking/projection
+  maths (ray-versus-box hit, sideways miss, NDC centring, behind-camera reject).
+
 ### Cameras
 - **First person** (default) and **third person**, switchable at any time with
   `V`, `--camera=first|third`, or the Player panel. Third person pulls the eye
@@ -537,6 +564,7 @@ Useful launch variants:
 | `--headless[=frames]` | 120 frames | simulate without a window/GPU |
 | `--selftest[=frames]` | 45 frames | render for real, check the framebuffer, exit 0/3 |
 | `--glinfo` | off | print the SDL video/display and OpenGL environment, then exit |
+| `--editor[=0\|1]` | on | start in the editor; `--play` (or `--editor=0`) boots straight into the game |
 | `--camera=<first\|third>` | first | camera rig (also toggled with `V`) |
 | `--camera-distance=<m>` | 4.5 | third-person distance behind the shoulder |
 | `--scene=<path>` | generated | load a scene file at start |
@@ -566,6 +594,14 @@ to the previous value. Numeric values are clamped to safe ranges.
 | `F6` | pause/resume time of day |
 | `F7` | switch render style: realistic ↔ anime (NPR) |
 | `V` | switch camera: first person ↔ third person |
+| Editor: right mouse drag | look around (while hovering the viewport) |
+| Editor: `WASD` / `Q E` / `Shift` / wheel | fly, descend/ascend, boost, camera speed |
+| Editor: `W` / `E` / `R` | Move / Rotate / Scale gizmo (when not flying) |
+| Editor: left click | select the object under the cursor, or drag a gizmo axis |
+| Editor: `F` | focus the camera on the selection |
+| Editor: `Delete` | delete the selection |
+| Editor: `F8` / `F9` | save / reload the scene |
+| Editor: `Esc` | stop play mode |
 | `F8` | save the scene (`scene.json`) |
 | `F9` | reload the scene from disk |
 | `[` / `]` | scrub time backwards/forwards |
@@ -678,6 +714,7 @@ DerechoEngine/
 │   │   ├── GeometryBuilder.*  # terrain grid, rocks, trees, grass, cards, cylinder
 │   │   ├── Framebuffer.*      # MSAA scene target, shadow map, bloom chain
 │   │   └── Renderer.*         # passes, uniforms, stats, screenshots
+│   ├── ui/Editor.*            # editor shell: panels, viewport, gizmos, play mode
 │   ├── scene/
 │   │   ├── Camera.*           # FPS camera, matrices, head bob
 │   │   ├── Frustum.*          # AABB/sphere culling
@@ -872,6 +909,9 @@ These are deliberate scope choices for a compact, verifiable implementation:
 - **Foliage is static aside from wind.** Placement is deterministic per seed but
   there is no growth, destruction, streaming or persistence; regenerating a
   world discards edits (there are none).
+- **The editor has no undo/redo, no docking and no prefabs.** Entity reparenting
+  is only possible by editing the scene file or through code; panels are a fixed
+  layout rather than user-arrangeable dock windows.
 - **Scripting is native and small.** Behaviours are C++ classes (Spin, Bob,
   Orbit, Pulse) attached by name and tuned with float parameters; there is no
   external scripting runtime, no code hot-reload, and scripts cannot be authored

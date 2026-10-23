@@ -105,6 +105,39 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
     return true;
 }
 
+bool Renderer::EnsurePresentTarget(int width, int height) {
+    width = std::max(1, width);
+    height = std::max(1, height);
+    if (m_presentFbo != 0 && m_presentWidth == width && m_presentHeight == height) {
+        return true;
+    }
+    if (m_presentFbo != 0) {
+        glDeleteFramebuffers(1, &m_presentFbo);
+        glDeleteTextures(1, &m_presentTexture);
+        m_presentFbo = 0;
+        m_presentTexture = 0;
+    }
+    glGenTextures(1, &m_presentTexture);
+    glBindTexture(GL_TEXTURE_2D, m_presentTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &m_presentFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_presentFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_presentTexture, 0);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        DE_ERROR("Could not create the presentation target (status 0x%04X).", status);
+        return false;
+    }
+    m_presentWidth = width;
+    m_presentHeight = height;
+    return true;
+}
+
 bool Renderer::CreateTargets(int width, int height) {
     const int sceneWidth = std::max(1, static_cast<int>(static_cast<float>(width) * m_config.renderScale));
     const int sceneHeight = std::max(1, static_cast<int>(static_cast<float>(height) * m_config.renderScale));
@@ -122,6 +155,9 @@ bool Renderer::CreateTargets(int width, int height) {
     m_shadowRequestedSize = m_config.shadowMapSize;
     if (!m_shadowMap.Create(m_config.shadowMapSize)) {
         DE_WARN("Shadow map creation failed; shadows will be disabled for this run.");
+    }
+    if (!EnsurePresentTarget(m_windowWidth, m_windowHeight)) {
+        return false;
     }
     return true;
 }
@@ -336,11 +372,22 @@ bool Renderer::CreateTextures() {
     return true;
 }
 
+unsigned int Renderer::AssetTextureId(const std::string& name) const {
+    const auto found = m_assetTextures.find(name);
+    return found == m_assetTextures.end() ? 0u : found->second.Id();
+}
+
 void Renderer::Shutdown() {
     m_fullscreenTriangle.Destroy();
     m_bloom.Destroy();
     m_shadowMap.Destroy();
     m_sceneTarget.Destroy();
+    if (m_presentFbo != 0) {
+        glDeleteFramebuffers(1, &m_presentFbo);
+        glDeleteTextures(1, &m_presentTexture);
+        m_presentFbo = 0;
+        m_presentTexture = 0;
+    }
     m_grassTexture.Destroy();
     m_rockTexture.Destroy();
     m_soilTexture.Destroy();
@@ -380,6 +427,7 @@ void Renderer::Resize(int width, int height) {
 }
 
 void Renderer::UpdateTargets() {
+    EnsurePresentTarget(m_windowWidth, m_windowHeight);
     const int sceneWidth = std::max(1, static_cast<int>(static_cast<float>(m_windowWidth) * m_config.renderScale));
     const int sceneHeight = std::max(1, static_cast<int>(static_cast<float>(m_windowHeight) * m_config.renderScale));
 
@@ -501,11 +549,24 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, scene::S
     const auto postStart = Clock::now();
     RenderBloomPass();
     RenderPostPass();
+    PresentToScreen();
     m_stats.postPassMs = SecondsSince(postStart);
 
     const scene::VegetationStats& vegetationStats = world.Vegetation().Stats();
     m_stats.visibleInstances = vegetationStats.visibleInstances;
     m_stats.culledInstances = vegetationStats.culledInstances;
+}
+
+void Renderer::PresentToScreen() {
+    if (m_presentFbo == 0 || !m_presentEnabled) {
+        return;
+    }
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_presentFbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, m_presentWidth, m_presentHeight, 0, 0, m_windowWidth, m_windowHeight,
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, m_windowWidth, m_windowHeight);
 }
 
 void Renderer::SetAtmosphereUniforms(Shader& shader) {
@@ -919,8 +980,14 @@ void Renderer::RenderBloomPass() {
 }
 
 void Renderer::RenderPostPass() {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, m_windowWidth, m_windowHeight);
+    // Composite into an offscreen target so the editor can display the exact
+    // frame the game would show, then blit it to the window.
+    glBindFramebuffer(GL_FRAMEBUFFER, m_presentFbo != 0 ? m_presentFbo : 0);
+    if (m_presentFbo != 0) {
+        glViewport(0, 0, m_presentWidth, m_presentHeight);
+    } else {
+        glViewport(0, 0, m_windowWidth, m_windowHeight);
+    }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_CULL_FACE);
@@ -985,19 +1052,29 @@ void Renderer::RenderPostPass() {
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+
+    // Hand the default framebuffer back: the UI backend draws into whatever is
+    // bound, so leaving the frame target bound would paint the editor into the
+    // offscreen texture instead of the window.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, m_windowWidth, m_windowHeight);
 }
 
 bool Renderer::SaveScreenshot(const std::string& path) const {
     if (!m_ready) {
         return false;
     }
-    const int width = m_windowWidth;
-    const int height = m_windowHeight;
+    // Always capture the composited game frame: in the editor the window holds
+    // the UI, so reading the back buffer would save a picture of the panels.
+    const bool fromFrameTexture = m_presentFbo != 0;
+    const int width = fromFrameTexture ? m_presentWidth : m_windowWidth;
+    const int height = fromFrameTexture ? m_presentHeight : m_windowHeight;
     std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 3);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glReadBuffer(GL_BACK);
+    glBindFramebuffer(GL_FRAMEBUFFER, fromFrameTexture ? m_presentFbo : 0);
+    glReadBuffer(fromFrameTexture ? GL_COLOR_ATTACHMENT0 : GL_BACK);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     std::FILE* file = std::fopen(path.c_str(), "wb");
     if (!file) {

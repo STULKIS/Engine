@@ -142,6 +142,7 @@ set(DERECHO_SOURCES
     src/asset/Image.cpp
     src/asset/Mesh.cpp
     src/asset/Placeholders.cpp
+    src/scene/Picking.cpp
     src/scene/Scene.cpp
     src/scene/Script.cpp
     src/scene/Frustum.cpp
@@ -150,6 +151,7 @@ set(DERECHO_SOURCES
     src/scene/Vegetation.cpp
     src/scene/Water.cpp
     src/ui/DebugUI.cpp
+    src/ui/Editor.cpp
     src/world/World.cpp
 )
 

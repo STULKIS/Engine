@@ -3,6 +3,7 @@
 
 #include <cstdarg>
 #include <string>
+#include <vector>
 
 namespace derecho::core {
 
@@ -20,6 +21,14 @@ public:
 
     static void SetLevel(LogLevel level);
     static LogLevel Level();
+
+    // A copy of the most recent messages, for the editor's console panel.
+    struct Entry {
+        LogLevel level = LogLevel::Info;
+        std::string text;
+        std::string clock; // hh:mm:ss.mmm
+    };
+    static std::vector<Entry> History();
 
     // The most recent message logged at Error level (empty if none). Used to
     // explain a failed start-up in a dialog box when there is no console.

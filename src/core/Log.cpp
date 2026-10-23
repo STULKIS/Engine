@@ -16,6 +16,8 @@ std::mutex g_logMutex;
 std::FILE* g_file = nullptr;
 LogLevel g_level = LogLevel::Info;
 std::string g_lastError;
+std::vector<Log::Entry> g_history;
+constexpr size_t kHistoryLimit = 512;
 
 const char* ShortFileName(const char* path) {
     const char* lastSlash = std::strrchr(path, '/');
@@ -77,6 +79,11 @@ void Log::SetLevel(LogLevel level) {
 
 LogLevel Log::Level() { return g_level; }
 
+std::vector<Log::Entry> Log::History() {
+    std::lock_guard<std::mutex> lock(g_logMutex);
+    return g_history;
+}
+
 std::string Log::LastError() {
     std::lock_guard<std::mutex> lock(g_logMutex);
     return g_lastError;
@@ -114,6 +121,13 @@ void Log::WriteV(LogLevel level, const char* file, int line, const char* fmt, va
     if (level == LogLevel::Error) {
         g_lastError = message;
     }
+    if (g_history.size() >= kHistoryLimit) {
+        g_history.erase(g_history.begin(), g_history.begin() + 64);
+    }
+    char clock[16];
+    std::snprintf(clock, sizeof(clock), "%02d:%02d:%02d.%03d", tmBuf.tm_hour, tmBuf.tm_min,
+                  tmBuf.tm_sec, static_cast<int>(ms.count()));
+    g_history.push_back(Log::Entry{level, message, clock});
     std::fprintf(stdout, "[%02d:%02d:%02d.%03d] [%-5s] %s (%s:%d)\n",
                  tmBuf.tm_hour, tmBuf.tm_min, tmBuf.tm_sec, static_cast<int>(ms.count()),
                  levelText, message, shortFile, line);

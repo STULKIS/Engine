@@ -11,6 +11,7 @@
 #include "render/Shader.h"
 #include "scene/Camera.h"
 #include "scene/Frustum.h"
+#include "scene/Picking.h"
 #include "scene/Terrain.h"
 #include "ui/DebugUI.h"
 #include "world/World.h"
@@ -194,17 +195,39 @@ int Engine::Run(AppConfig& config) {
 
         Update(deltaSeconds);
 
-        // Build the debug UI for this frame.
-        m_debugUI->NewFrame();
-        ui::DebugActions actions;
-        m_debugUI->Draw(m_config, *m_world, m_entities, *m_player, *m_renderer, m_frameStats, actions);
-        ApplyActions(actions);
-        if (!m_running) {
-            break;
-        }
+        // Build the user interface for this frame: the editor, or the compact
+        // in-game debug overlay when running game-only (--play).
+        if (m_editor) {
+            m_editor->NewFrame();
+            ui::EditorActions editorActions;
+            m_editor->Draw(m_config, *m_world, m_entities, *m_player, *m_renderer, m_frameStats,
+                           m_editorCamera, editorActions);
+            ApplyEditorActions(editorActions);
 
-        RenderFrame();
-        m_debugUI->Render();
+            // Keep the compact overlay available inside play mode.
+            if (m_playState != ui::PlayState::Stopped && m_debugUI->Visible()) {
+                ui::DebugActions playActions;
+                m_debugUI->Draw(m_config, *m_world, m_entities, *m_player, *m_renderer, m_frameStats,
+                                playActions);
+                ApplyActions(playActions);
+            }
+            if (!m_running) {
+                break;
+            }
+            RenderFrame();
+            m_editor->Render();
+        } else {
+            m_debugUI->NewFrame();
+            ui::DebugActions actions;
+            m_debugUI->Draw(m_config, *m_world, m_entities, *m_player, *m_renderer, m_frameStats,
+                            actions);
+            ApplyActions(actions);
+            if (!m_running) {
+                break;
+            }
+            RenderFrame();
+            m_debugUI->Render();
+        }
         m_window->SwapBuffers();
 
         const double cpuMs = std::chrono::duration<double, std::milli>(
@@ -315,6 +338,33 @@ bool Engine::Initialize(AppConfig& config) {
         return false;
     }
 
+    m_editorMode = config.editor;
+    // In the editor the frame is displayed inside the viewport panel instead of
+    // being blitted under the panels.
+    m_renderer->SetPresentEnabled(!m_editorMode);
+    if (m_editorMode) {
+        m_editor = std::make_unique<ui::Editor>();
+        if (!m_editor->Initialize()) {
+            DE_ERROR("Editor initialization failed.");
+            return false;
+        }
+        // Frame the starter scene from a comfortable distance, like opening a
+        // level in any DCC-style editor.
+        const vec3 spawn = m_world->SpawnPoint();
+        m_editorCamera.SetPerspective(config.game.fieldOfView,
+                                      static_cast<float>(m_window->Width()) /
+                                          static_cast<float>(std::max(1, m_window->Height())),
+                                      0.1f, std::max(220.0f, config.render.viewDistance * 1.1f));
+        m_editorCamera.SetPosition(spawn + vec3(11.0f, 8.5f, 13.0f));
+        m_editorCamera.LookAt(spawn + vec3(0.0f, 2.0f, 0.0f));
+        DE_INFO("Editor ready: hierarchy, inspector, asset browser, console, gizmos, play-in-editor.");
+        // The editor owns the mouse; play mode captures it again.
+        if (m_input) {
+            m_input->SetRelativeMouseMode(false);
+            m_player->SetCaptured(false);
+        }
+    }
+
     // Apply a couple of GL defaults that the engine relies on.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -382,6 +432,10 @@ void Engine::HandleEvent(const SDL_Event& event) {
             return;
         case SDL_KEYDOWN:
             if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+                if (m_playState != ui::PlayState::Stopped) {
+                    StopPlay();
+                    return;
+                }
                 if (m_input && m_input->IsRelativeMouseMode()) {
                     m_input->SetRelativeMouseMode(false);
                     if (m_player) {
@@ -449,7 +503,8 @@ void Engine::Update(float deltaSeconds) {
         if (m_input->WasActionPressed(Action::Screenshot)) {
             m_screenshotRequested = true;
         }
-        if (m_input->WasKeyPressed(SDL_SCANCODE_R)) {
+        if (m_input->WasKeyPressed(SDL_SCANCODE_R) &&
+            m_playState == ui::PlayState::Playing) {
             RespawnPlayer();
         }
         if (m_input->IsKeyDown(SDL_SCANCODE_LEFTBRACKET)) {
@@ -477,10 +532,11 @@ void Engine::Update(float deltaSeconds) {
 
     SyncPlayerSettings();
 
-    if (m_input) {
+    const bool playing = m_playState == ui::PlayState::Playing;
+    if (m_input && playing) {
         m_player->ApplyMouseLook(*m_input);
     }
-    if (m_input) {
+    if (m_input && playing) {
         m_player->Update(deltaSeconds, *m_input, m_world->Terrain());
     }
 
@@ -489,8 +545,11 @@ void Engine::Update(float deltaSeconds) {
 
     // Scene behaviours run after the player so scripts react to this frame's
     // camera state, and before the world update so foliage follows the props.
+    // Editing freezes them, exactly like Unity's edit mode.
     UpdatePlayerCharacter();
-    m_scripts.Update(m_entities, deltaSeconds);
+    if (playing) {
+        m_scripts.Update(m_entities, deltaSeconds);
+    }
 
     const scene::Frustum frustum = scene::Frustum::FromViewProjection(camera.ViewProjection());
     m_world->Update(deltaSeconds, camera, frustum, m_config.render);
@@ -517,6 +576,137 @@ void Engine::SyncPlayerSettings() {
                                       static_cast<float>(m_window->Width()) /
                                           static_cast<float>(std::max(1, m_window->Height())),
                                       0.1f, std::max(220.0f, m_config.render.viewDistance * 1.1f));
+    m_editorCamera.SetPerspective(m_config.game.fieldOfView,
+                                 static_cast<float>(m_window->Width()) /
+                                     static_cast<float>(std::max(1, m_window->Height())),
+                                 0.1f, std::max(220.0f, m_config.render.viewDistance * 1.1f));
+}
+
+void Engine::StartPlay() {
+    if (!m_player || m_world == nullptr) {
+        return;
+    }
+    if (m_playState == ui::PlayState::Paused) {
+        m_playState = ui::PlayState::Playing;
+        return;
+    }
+    if (m_playState == ui::PlayState::Playing) {
+        return;
+    }
+    // Snapshot the authored scene so Stop can undo everything the game changed.
+    m_playSnapshot = m_entities.Serialize();
+    // "Play from here": drop the player where the editor camera is looking, so
+    // the run starts at the spot being inspected.
+    if (m_editor) {
+        vec3 startPosition = m_editorCamera.Position();
+        startPosition.y = m_world->Terrain().HeightAt(startPosition.x, startPosition.z) + 0.2f;
+        if (glm::length(startPosition - m_player->Position()) > 2.0f) {
+            m_player->Spawn(m_world->Terrain(), startPosition);
+        }
+    }
+    m_playStartPosition = m_player->Position();
+    m_scripts.Clear(m_entities);
+    m_playState = ui::PlayState::Playing;
+    if (m_input) {
+        m_input->SetRelativeMouseMode(true);
+    }
+    m_player->SetCaptured(true);
+    UpdatePlayerCharacter();
+    DE_INFO("Play mode started: scene snapshot taken (%zu entities).", m_entities.AliveCount());
+}
+
+void Engine::StopPlay() {
+    if (m_playState == ui::PlayState::Stopped) {
+        return;
+    }
+    m_playState = ui::PlayState::Stopped;
+    m_scripts.Clear(m_entities);
+
+    if (!m_playSnapshot.empty()) {
+        std::string error;
+        if (!m_entities.Deserialize(m_playSnapshot, error)) {
+            DE_ERROR("Could not restore the scene after play mode: %s", error.c_str());
+        }
+        m_playSnapshot.clear();
+    }
+
+    // Re-link the player character after the scene was replaced.
+    m_playerEntity = scene::kInvalidEntity;
+    for (const scene::Entity& entity : m_entities.Entities()) {
+        if (entity.alive && entity.name == "Player") {
+            m_playerEntity = entity.id;
+            break;
+        }
+    }
+
+    if (m_player && m_world) {
+        m_player->Spawn(m_world->Terrain(), m_playStartPosition);
+        m_player->SetCaptured(false);
+    }
+    if (m_input) {
+        m_input->SetRelativeMouseMode(false);
+    }
+    UpdatePlayerCharacter();
+    DE_INFO("Play mode stopped: scene restored to the snapshot.");
+}
+
+void Engine::TogglePause() {
+    if (m_playState == ui::PlayState::Playing) {
+        m_playState = ui::PlayState::Paused;
+        DE_INFO("Play mode paused.");
+    } else if (m_playState == ui::PlayState::Paused) {
+        m_playState = ui::PlayState::Playing;
+        DE_INFO("Play mode resumed.");
+    }
+}
+
+void Engine::ApplyEditorActions(ui::EditorActions& actions) {
+    if (actions.play) {
+        StartPlay();
+    }
+    if (actions.pause) {
+        TogglePause();
+    }
+    if (actions.stop) {
+        StopPlay();
+    }
+    if (actions.saveScene) {
+        SaveScene(m_entities.Path());
+    }
+    if (actions.reloadScene) {
+        StopPlay();
+        LoadScene(m_entities.Path());
+    }
+    if (actions.newScene) {
+        StopPlay();
+        BuildDefaultScene();
+        if (m_editor) {
+            m_editor->Select(scene::kInvalidEntity);
+        }
+    }
+    if (actions.duplicateEntity && m_editor) {
+        if (m_entities.Find(m_editor->Selected())) {
+            m_editor->Select(m_entities.Duplicate(m_editor->Selected()));
+        }
+    }
+    if (actions.deleteEntity && m_editor) {
+        const scene::EntityId selected = m_editor->Selected();
+        if (m_entities.Find(selected)) {
+            m_entities.Destroy(selected);
+            m_editor->Select(scene::kInvalidEntity);
+        }
+    }
+    if (actions.toggleFullscreen && m_window) {
+        m_window->ToggleFullscreen();
+        m_window->RefreshDrawableSize();
+        m_renderer->Resize(m_window->Width(), m_window->Height());
+    }
+    if (actions.requestScreenshot) {
+        m_screenshotRequested = true;
+    }
+    if (actions.quit) {
+        m_running = false;
+    }
 }
 
 void Engine::ApplyActions(ui::DebugActions& actions) {
@@ -714,7 +904,10 @@ void Engine::UpdatePlayerCharacter() {
     // The model faces +Z; the camera looks down -Z at yaw 0, hence 180 - yaw.
     entity->position = m_player->Position();
     entity->rotation.y = 180.0f - m_player->YawDegrees();
-    entity->visible = m_config.game.thirdPerson;
+    // Editing shows the character (it is part of the scene); the game hides it
+    // in first person so it cannot clip into the view.
+    const bool editing = m_editor && m_playState == ui::PlayState::Stopped;
+    entity->visible = m_config.game.thirdPerson || editing;
 }
 
 void Engine::TakeScreenshot() {
@@ -1174,6 +1367,85 @@ int Engine::RunHeadless(AppConfig& config) {
                 shipped.Textures().size(), root.c_str());
     }
 
+    // Editor data paths: duplicating entities and the in-memory snapshot used
+    // by play-in-editor must both behave.
+    bool editorDataOk = false;
+    {
+        scene::Scene source;
+        const scene::EntityId parent =
+            source.Create("Parent", scene::Primitive::Box, vec3(1.0f, 2.0f, 3.0f));
+        const scene::EntityId child =
+            source.Create("Child", scene::Primitive::Sphere, vec3(0.0f, 0.5f, 0.0f));
+        if (scene::Entity* childEntity = source.Find(child)) {
+            childEntity->parent = parent;
+            childEntity->scale = vec3(0.5f);
+        }
+
+        const scene::EntityId copy = source.Duplicate(parent);
+        const scene::Entity* copyEntity = source.Find(copy);
+        const bool duplicated = copyEntity && copyEntity->id == copy &&
+                                copyEntity->name != "Parent" &&
+                                glm::length(copyEntity->position - vec3(1.0f, 2.0f, 3.0f)) < 1e-4f &&
+                                source.AliveCount() == 4;
+        // The child follows the copied parent.
+        int copiedChildren = 0;
+        for (const scene::Entity& entity : source.Entities()) {
+            if (entity.alive && entity.parent == copy) {
+                ++copiedChildren;
+            }
+        }
+
+        const std::string snapshot = source.Serialize();
+        scene::Scene restored;
+        std::string restoreError;
+        const bool roundTrip = restored.Deserialize(snapshot, restoreError) &&
+                               restored.AliveCount() == source.AliveCount();
+
+        editorDataOk = duplicated && copiedChildren == 1 && roundTrip;
+        DE_INFO("Editor data test: duplicate %s, hierarchy copy %s, snapshot %s.",
+                duplicated ? "ok" : "FAILED", copiedChildren == 1 ? "ok" : "FAILED",
+                roundTrip ? "ok" : "FAILED");
+        if (!editorDataOk) {
+            DE_ERROR("Smoke test failed: editor scene operations are broken (%s).",
+                     restoreError.c_str());
+        }
+    }
+
+    // Viewport maths: a ray must hit the box it is aimed at, miss the one beside
+    // it, and the projection of a point on the view axis must land in the middle
+    // of the screen. These are the two primitives click-to-select depends on.
+    bool pickingOk = false;
+    {
+        scene::Ray ray;
+        ray.origin = vec3(0.0f, 0.0f, 5.0f);
+        ray.direction = vec3(0.0f, 0.0f, -1.0f);
+        float hitDistance = 0.0f;
+        const bool hits = scene::RayIntersectsAabb(ray, vec3(-1.0f, -1.0f, -6.0f),
+                                                   vec3(1.0f, 1.0f, -4.0f), hitDistance);
+        float missDistance = 0.0f;
+        const bool misses = !scene::RayIntersectsAabb(ray, vec3(4.0f, -1.0f, -6.0f),
+                                                      vec3(6.0f, 1.0f, -4.0f), missDistance);
+
+        scene::Camera probe;
+        probe.SetPerspective(70.0f, 16.0f / 9.0f, 0.1f, 500.0f);
+        probe.SetPosition(vec3(0.0f, 0.0f, 0.0f));
+        probe.SetRotation(0.0f, 0.0f);
+        vec2 centre(9.0f);
+        const bool projects = scene::ProjectToNdc(probe.ViewProjection(),
+                                                  vec3(0.0f, 0.0f, -10.0f), centre);
+        vec2 behind(9.0f);
+        const bool rejects = !scene::ProjectToNdc(probe.ViewProjection(),
+                                                  vec3(0.0f, 0.0f, 10.0f), behind);
+
+        pickingOk = hits && std::abs(hitDistance - 9.0f) < 0.01f && misses && projects &&
+                    std::abs(centre.x) < 1e-3f && std::abs(centre.y) < 1e-3f && rejects;
+        DE_INFO("Picking test: hit at %.2f m, sideways miss %s, projection %s.",
+                hitDistance, misses ? "ok" : "FAILED", projects ? "centred" : "FAILED");
+        if (!pickingOk) {
+            DE_ERROR("Smoke test failed: viewport picking maths is wrong.");
+        }
+    }
+
     // Third-person camera: the rig must sit behind the player by the requested
     // distance and never end up under the terrain.
     bool cameraRigOk = false;
@@ -1250,6 +1522,8 @@ int Engine::RunHeadless(AppConfig& config) {
     if (!sceneRoundTrip) { DE_ERROR("Smoke test failed: scene serialisation is broken."); ok = false; }
     if (!assetPipelineOk) { DE_ERROR("Smoke test failed: asset import is broken."); ok = false; }
     if (!cameraRigOk) { DE_ERROR("Smoke test failed: camera modes are broken."); ok = false; }
+    if (!editorDataOk) { DE_ERROR("Smoke test failed: editor scene operations are broken."); ok = false; }
+    if (!pickingOk) { DE_ERROR("Smoke test failed: viewport picking is broken."); ok = false; }
     if (!moved) { DE_ERROR("Smoke test failed: player did not move forward."); ok = false; }
     if (!timeAdvanced) { DE_ERROR("Smoke test failed: time of day did not advance."); ok = false; }
     if (!frustumFront || frustumBehind || frustumFar) {

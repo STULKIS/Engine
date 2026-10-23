@@ -4,8 +4,10 @@
 #include "core/Config.h"
 #include "core/Input.h"
 #include "core/Time.h"
+#include "scene/Camera.h"
 #include "scene/Script.h"
 #include "scene/Scene.h"
+#include "ui/Editor.h"
 
 #include <memory>
 #include <string>
@@ -39,6 +41,10 @@ private:
     void Update(float deltaSeconds);
     void RenderFrame();
     void ApplyActions(ui::DebugActions& actions);
+    void ApplyEditorActions(ui::EditorActions& actions);
+    void StartPlay();
+    void StopPlay();
+    void TogglePause();
     void SyncPlayerSettings();
     void RespawnPlayer();
     void TakeScreenshot();
@@ -64,6 +70,12 @@ private:
     scene::EntityId m_playerEntity = scene::kInvalidEntity;
     std::unique_ptr<game::Player> m_player;
     std::unique_ptr<ui::DebugUI> m_debugUI;
+    std::unique_ptr<ui::Editor> m_editor;
+    scene::Camera m_editorCamera;
+    std::string m_playSnapshot;
+    vec3 m_playStartPosition{0.0f};
+    ui::PlayState m_playState = ui::PlayState::Stopped;
+    bool m_editorMode = true;
 
     Clock m_clock;
     FrameStats m_frameStats;
