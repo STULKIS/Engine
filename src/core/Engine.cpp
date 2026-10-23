@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace frontier::core {
 
@@ -157,6 +158,13 @@ int Engine::Run(AppConfig& config) {
     if (!Initialize(m_config)) {
         Shutdown();
         return 1;
+    }
+
+    if (m_config.selftest) {
+        const int exitCode = RunSelfTest();
+        Shutdown();
+        FR_INFO("Frontier Engine shut down cleanly.");
+        return exitCode;
     }
 
     m_running = true;
@@ -523,6 +531,159 @@ void Engine::TakeScreenshot() {
     if (m_renderer->SaveScreenshot(path)) {
         FR_INFO("Screenshot written: %s (PPM, view with GIMP/ffmpeg/ImageMagick)", path.c_str());
     }
+}
+
+namespace {
+
+struct FrameReport {
+    int samples = 0;
+    double meanLuma = 0.0;
+    double stdDev = 0.0;
+    double topMean = 0.0;
+    double bottomMean = 0.0;
+    double blackFraction = 1.0;
+};
+
+// Summarises an RGB back-buffer read. Rows are bottom-up (OpenGL convention),
+// so "top" means the upper half of the screen, where the sky usually is.
+FrameReport AnalyseFrame(const unsigned char* pixels, size_t pixelBytes, int width, int height) {
+    FrameReport report;
+    if (!pixels || width <= 0 || height <= 0 ||
+        pixelBytes < static_cast<size_t>(width) * static_cast<size_t>(height) * 3u) {
+        return report;
+    }
+    const int step = std::max(1, width / 200);
+    double sum = 0.0;
+    double sumSquares = 0.0;
+    double topSum = 0.0;
+    double bottomSum = 0.0;
+    int topCount = 0;
+    int bottomCount = 0;
+    int black = 0;
+
+    for (int y = 0; y < height; y += step) {
+        const bool topHalf = y >= height / 2;
+        for (int x = 0; x < width; x += step) {
+            const size_t index = (static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)) * 3u;
+            const double r = pixels[index + 0] / 255.0;
+            const double g = pixels[index + 1] / 255.0;
+            const double b = pixels[index + 2] / 255.0;
+            const double luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            sum += luma;
+            sumSquares += luma * luma;
+            ++report.samples;
+            if (luma < 0.02) {
+                ++black;
+            }
+            if (topHalf) {
+                topSum += luma;
+                ++topCount;
+            } else {
+                bottomSum += luma;
+                ++bottomCount;
+            }
+        }
+    }
+
+    if (report.samples == 0) {
+        return report;
+    }
+    report.meanLuma = sum / report.samples;
+    const double variance = std::max(0.0, sumSquares / report.samples - report.meanLuma * report.meanLuma);
+    report.stdDev = std::sqrt(variance);
+    report.blackFraction = static_cast<double>(black) / report.samples;
+    report.topMean = topCount > 0 ? topSum / topCount : 0.0;
+    report.bottomMean = bottomCount > 0 ? bottomSum / bottomCount : 0.0;
+    return report;
+}
+
+} // namespace
+
+int Engine::RunSelfTest() {
+    const int frames = std::max(5, m_config.selftestFrames);
+    const int width = m_window->Width();
+    const int height = m_window->Height();
+    FR_INFO("Self-test: rendering %d frames at %dx%d and inspecting the result.", frames, width, height);
+
+    constexpr float kStep = 1.0f / 60.0f;
+    float elapsed = 0.0f;
+    const size_t pixelBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 3u;
+    std::unique_ptr<unsigned char[]> pixels;
+
+    for (int frame = 0; frame < frames; ++frame) {
+        elapsed += kStep;
+        scene::Camera& camera = m_player->Camera();
+        const scene::Frustum frustum = scene::Frustum::FromViewProjection(camera.ViewProjection());
+        m_world->Update(kStep, camera, frustum, m_config.render);
+        m_renderer->Render(camera, *m_world, m_config.render, elapsed);
+
+        // Exercise the debug overlay too: it compiles ImGui's own GLSL at the
+        // first draw, which is a common source of driver-specific failures.
+        m_debugUI->NewFrame();
+        ui::DebugActions actions; // inspected but not applied
+        m_debugUI->Draw(m_config, *m_world, *m_player, *m_renderer, m_frameStats, actions);
+        m_debugUI->Render();
+
+        if (frame + 1 == frames) {
+            namespace fs = std::filesystem;
+            std::error_code ec;
+            fs::create_directories("screenshots", ec);
+            m_renderer->SaveScreenshot("screenshots/selftest.ppm");
+
+            if (pixelBytes > 0) {
+                pixels.reset(new unsigned char[pixelBytes]());
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glReadBuffer(GL_BACK);
+                glPixelStorei(GL_PACK_ALIGNMENT, 1);
+                glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.get());
+            }
+        }
+        m_window->SwapBuffers();
+    }
+
+    const bool glClean = render::gl::CheckErrors("self-test");
+    const FrameReport report = AnalyseFrame(pixels.get(), pixelBytes, width, height);
+    const render::RenderStats& stats = m_renderer->Stats();
+
+    FR_INFO("Self-test image: mean luminance %.3f, contrast %.3f, black pixels %.1f%%, "
+            "sky %.3f vs ground %.3f.",
+            report.meanLuma, report.stdDev, report.blackFraction * 100.0,
+            report.topMean, report.bottomMean);
+    FR_INFO("Self-test totals: %d draw calls, %zu triangles, %d visible instances, %d culled.",
+            stats.drawCalls, stats.triangles, stats.visibleInstances, stats.culledInstances);
+
+    const bool sampled = report.samples > 0;
+    const bool lit = report.meanLuma > 0.03 && report.meanLuma < 0.97;
+    const bool varied = report.stdDev > 0.03;
+    const bool notOverwhelminglyBlack = report.blackFraction < 0.90;
+    const bool horizon = std::fabs(report.topMean - report.bottomMean) > 0.02;
+    const bool drewGeometry = stats.drawCalls >= 3 && stats.triangles > 5000;
+
+    bool pass = true;
+    auto check = [&pass](bool ok, const char* label) {
+        FR_INFO("  [%s] %s", ok ? "PASS" : "FAIL", label);
+        pass = pass && ok;
+    };
+    check(sampled, "frame buffer readable");
+    check(glClean, "no OpenGL errors");
+    check(lit, "image is neither black nor blown out");
+    check(varied, "image has contrast (not a flat colour)");
+    check(notOverwhelminglyBlack, "most pixels are not black");
+    check(horizon, "sky and ground regions differ");
+    check(drewGeometry, "geometry was drawn");
+
+    if (pass) {
+        FR_INFO("Self-test PASSED: the renderer produced a varied, non-black frame.");
+        FR_INFO("A copy of the frame was written to screenshots/selftest.ppm.");
+        return 0;
+    }
+
+    FR_ERROR("Self-test FAILED.");
+    FR_ERROR("Try --safe-mode (no MSAA/HDR/bloom), then --no-bloom, --msaa=1 or --no-hdr "
+             "to isolate the feature your driver dislikes.");
+    FR_ERROR("The OpenGL version/renderer and any GL errors are logged above; "
+             "screenshots/selftest.ppm shows what was rendered.");
+    return 3;
 }
 
 int Engine::RunHeadless(AppConfig& config) {

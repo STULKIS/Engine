@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -259,6 +260,7 @@ void PrintUsage(const char* exe) {
         "                         reduced grass and 0.85 render scale\n"
         "  --wireframe            Start in wireframe debug mode\n"
         "  --headless[=frames]    Render without a window (smoke test)\n"
+        "  --selftest[=frames]    Open the window, render, verify the pixels, exit\n"
         "  --demo-ui              Open the ImGui style demo on start\n"
         "  --help                 Print this help\n"
         "\n"
@@ -344,6 +346,11 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         }
         if (key == "no-fog") { ApplySetting(config, "render.fogdensity", "0", value); continue; }
         if (key == "wireframe") { ApplySetting(config, "render.wireframe", inferredValue(), value); continue; }
+        if (key == "selftest" || key == "self-test") {
+            config.selftest = true;
+            config.selftestFrames = hasValue ? std::max(5, std::atoi(value.c_str())) : 45;
+            continue;
+        }
         if (key == "headless") {
             config.headless = true;
             if (hasValue) {

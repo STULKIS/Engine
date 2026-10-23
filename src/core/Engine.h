@@ -42,6 +42,7 @@ private:
     void TakeScreenshot();
 
     int RunHeadless(AppConfig& config);
+    int RunSelfTest();
 
     AppConfig m_config;
     std::unique_ptr<Window> m_window;

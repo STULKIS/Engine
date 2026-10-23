@@ -101,6 +101,33 @@ conifers on the slopes, sun shadows, distance fog and a small debug panel.
 The mouse is captured: `WASD` walks, `Space` jumps, `Shift` sprints, `Esc`
 releases the mouse, `F1` toggles the panel.
 
+### Verify your machine before playing
+
+`--selftest` opens the window, renders 45 frames through the complete pipeline
+(including the ImGui overlay), reads the framebuffer back and checks the result:
+
+```bash
+./frontier --selftest        # Windows: frontier.exe --selftest
+```
+
+```
+Self-test image: mean luminance 0.284, contrast 0.161, black pixels 0.0%, sky 0.512 vs ground 0.091.
+Self-test totals: 12 draw calls, 1441783 triangles, 17386 visible instances, 34541 culled.
+  [PASS] frame buffer readable
+  [PASS] no OpenGL errors
+  [PASS] image is neither black nor blown out
+  [PASS] image has contrast (not a flat colour)
+  [PASS] most pixels are not black
+  [PASS] sky and ground regions differ
+  [PASS] geometry was drawn
+Self-test PASSED: the renderer produced a varied, non-black frame.
+```
+
+The frame it judged is saved to `screenshots/selftest.ppm` (convert with
+ImageMagick or ffmpeg). Exit code is 0 on success and 3 on failure, so it can be
+scripted. If it fails, the log says which check failed and the troubleshooting
+section lists what to try.
+
 If the window does not appear, or it appears black, see
 [Troubleshooting](#troubleshooting); `--safe-mode` turns off MSAA, HDR and bloom
 and shrinks the world, which is the first thing to try on an older GPU.
@@ -127,6 +154,7 @@ with no GPU, no libGL and no display):
 | Windows build with MSVC 2022 + fetched SDL2 (`windows-latest`) | **passes** in GitHub Actions, including `--headless=60` |
 | Linux build with fetched SDL2 (`ubuntu-latest`) | **passes** in GitHub Actions, including `--headless=60` |
 | Ready-to-run CI artifacts | published by the workflow (`frontier-windows-x64`, `frontier-linux-x64`) |
+| `--selftest` framebuffer checks | implemented; needs a real GL driver, so it cannot run in this container |
 | Render target fallbacks (MSAA → 1x → LDR) | implemented defensively; the code paths are not reachable without a GL driver |
 | Windowed OpenGL start-up | **cannot be exercised here** — the container has no GL driver; the engine exits with a clear error instead of crashing |
 | Visual output / screenshots | not captured for the same reason |
@@ -196,6 +224,9 @@ to LDR if a render-target format cannot be created.
   downhill surface adherence, buoyancy/swimming, respawn, head bob.
 
 ### Tooling
+- `--selftest` renders the full pipeline including the ImGui overlay, reads the
+  back buffer and checks luminance, contrast and draw-call statistics, writing
+  `screenshots/selftest.ppm` and exiting 0/3.
 - `--headless` mode runs world generation, placement, time of day and player
   physics with no window and no GPU — ideal for CI and for validating the
   simulation on servers. It also expands every shader source (and its
@@ -370,6 +401,7 @@ Useful launch variants:
 | `--safe-mode` | off | no MSAA/HDR/bloom, 1024 shadow map, 0.85 render scale, lighter world |
 | `--wireframe` | off | start in wireframe mode |
 | `--headless[=frames]` | 120 frames | simulate without a window/GPU |
+| `--selftest[=frames]` | 45 frames | render for real, check the framebuffer, exit 0/3 |
 | `--demo-ui` | off | open the ImGui style demo |
 | `--help` | — | usage summary |
 
@@ -723,6 +755,8 @@ Start with `./frontier --safe-mode`, which disables MSAA, HDR and bloom and uses
 a smaller shadow map. Then try `--no-bloom`, `--msaa=1`, `--no-hdr` or
 `--render-scale=0.75` one at a time to find the feature your driver dislikes.
 The log reports the effective target format and any fallback that was taken.
+`--selftest` gives a pass/fail verdict and writes the frame it inspected to
+`screenshots/selftest.ppm`.
 
 **Low frame rate.**
 Every frame is rendered at `--render-scale` (default 1.0) into an HDR target;

@@ -68,6 +68,8 @@ struct AppConfig {
     std::string assetsDir = "assets";
     bool headless = false;   // run N frames without presenting (CI smoke test)
     int headlessFrames = 120;
+    bool selftest = false;   // render a few frames and inspect the pixels
+    int selftestFrames = 45;
     bool demoUI = false;
 };
 

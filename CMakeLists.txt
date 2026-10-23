@@ -148,8 +148,10 @@ set(FRONTIER_SOURCES
 
 add_executable(frontier ${FRONTIER_SOURCES})
 
-target_include_directories(frontier PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_include_directories(frontier PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# Vendored headers are treated as system headers so their warnings (GLM's
+# volatile usage, ImGui's unused parameters) do not pollute our build log.
+target_include_directories(frontier SYSTEM PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui/backends
@@ -192,6 +194,11 @@ if(MSVC)
     endif()
 else()
     target_compile_options(frontier PRIVATE -Wall -Wextra -Wpedantic)
+    # GLM 0.9.9.8's half-float overflow guard uses a volatile local, which GCC 12
+    # reports under -Wextra. The header is vendored and unmodified.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(frontier PRIVATE -Wno-volatile)
+    endif()
     if(FRONTIER_WARNINGS_AS_ERRORS)
         target_compile_options(frontier PRIVATE -Werror)
     endif()
