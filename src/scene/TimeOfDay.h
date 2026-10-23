@@ -3,6 +3,7 @@
 
 #include "math/Math.h"
 
+#include <algorithm>
 #include <string>
 
 namespace frontier::scene {
