@@ -204,9 +204,40 @@ to LDR if a render-target format cannot be created.
 - Water: Gerstner-style waves, depth-based colour from the terrain height map,
   fresnel sky reflection, sun specular, shoreline foam, whitecaps.
 - Post-processing: bright-pass + separable Gaussian bloom, ACES filmic tone
-  mapping, exposure, vignette, sRGB encode.
+  mapping, exposure, vignette, saturating colour grade, optional posterise,
+  sRGB encode.
+- **Stylised (NPR / anime) renderer** - a second look for the same scene, built
+  from the same passes: banded cel lighting with a hard shadow terminator, rim
+  light, silhouette ink outlines from resolved depth, a banded "painted" sky
+  with flat two-tone clouds and a flat sun disc, a softer tone curve that keeps
+  flat colour fields saturated. Toggle with `F7` or `--style=anime`.
 - Debug: wireframe mode, pass timings, draw-call/triangle/instance counters,
   PPM screenshot output.
+
+### Render styles
+
+Two complete looks ship in the same binary; everything is procedural and
+original, there are no imported anime assets or third-party shaders.
+
+| | Realistic | Anime (NPR) |
+| --- | --- | --- |
+| Lighting | smooth Lambert + wrap + ambient | 2–8 quantised light bands, hard shadow terminator |
+| Shadows | 3×3 PCF, soft | PCF thresholded to a crisp two-tone shadow |
+| Edges | none | depth-discontinuity ink outlines (thickness/strength adjustable) |
+| Sky | gradient + FBM cloud deck | 5-band painted gradient, flat two-tone clouds, flat sun disc with ring |
+| Tone | ACES filmic | softer shoulder, higher saturation, optional posterise |
+
+```bash
+./frontier --style=anime                 # cel shading + ink outlines
+./frontier --style=anime --cel-steps=2   # harder two-tone look
+./frontier --style=anime --outline=0     # flat colours, no lines
+./frontier --style=anime --posterize=12  # graphic/posterised finish
+```
+
+Press `F7` at runtime to compare the two, and use the **Rendering → Style**
+section of the debug panel to tune bands, outline width/strength, rim light and
+posterisation live. The anime path costs one extra full-screen pass and one
+depth resolve, so it is essentially free next to the terrain and foliage.
 
 ### World
 - 900 m × 900 m procedural heightfield (256² quads by default, configurable):
@@ -401,6 +432,11 @@ Useful launch variants:
 | `--assets=<path>` | `assets` | shader directory root |
 | `--log-level=<level>` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
 | `--log-file=<path>` | `frontier.log` | optional log tee |
+| `--style=<realistic\|anime>` | realistic | render style (anime = cel shading + outlines) |
+| `--cel-steps=<n>` | 3 | light bands used by cel shading |
+| `--outline[=0\|1]` | on | silhouette outlines in anime style |
+| `--posterize=<n>` | 0 | quantise the final image (0 = off) |
+| `--quality=<low\|medium\|high\|ultra>` | high | performance preset (MSAA, render scale, shadow map, view distance, foliage counts) |
 | `--no-hdr`, `--no-bloom`, `--no-fog` | off | disable those features |
 | `--safe-mode` | off | no MSAA/HDR/bloom, 1024 shadow map, 0.85 render scale, lighter world |
 | `--wireframe` | off | start in wireframe mode |
@@ -430,6 +466,7 @@ to the previous value. Numeric values are clamped to safe ranges.
 | `F4` | foliage toggle |
 | `F5` | water toggle |
 | `F6` | pause/resume time of day |
+| `F7` | switch render style: realistic ↔ anime (NPR) |
 | `[` / `]` | scrub time backwards/forwards |
 | `R` | respawn at the shoreline spawn point |
 | `G` | regenerate the world with the next seed |

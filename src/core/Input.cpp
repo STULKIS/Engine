@@ -30,6 +30,7 @@ bool Input::Initialize() {
     Bind(Action::ToggleFoliage, SDL_SCANCODE_F4);
     Bind(Action::ToggleWater, SDL_SCANCODE_F5);
     Bind(Action::ToggleTimePause, SDL_SCANCODE_F6);
+    Bind(Action::ToggleStyle, SDL_SCANCODE_F7);
     Bind(Action::Screenshot, SDL_SCANCODE_F12);
 
     FR_INFO("Input initialized (relative mouse mode off).");

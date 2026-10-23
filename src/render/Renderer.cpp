@@ -339,6 +339,13 @@ void Renderer::SetAtmosphereUniforms(Shader& shader) {
     shader.SetFloat("uFogHeightFalloff", m_frame.settings.fogHeightFalloff);
     shader.SetFloat("uViewDistance", m_frame.settings.viewDistance);
     shader.SetFloat("uTime", m_frame.time);
+
+    // Stylised shading controls (ignored by the realistic path).
+    const bool cel = m_frame.settings.style == core::RenderStyle::Anime;
+    shader.SetInt("uCelShading", cel ? 1 : 0);
+    shader.SetFloat("uCelSteps", static_cast<float>(m_frame.settings.celSteps));
+    shader.SetFloat("uRimStrength", cel ? m_frame.settings.rimStrength : 0.0f);
+    shader.SetVec3("uRimColor", vec3(0.62f, 0.78f, 1.0f));
 }
 
 void Renderer::SetShadowUniforms(Shader& shader) {
@@ -431,6 +438,7 @@ void Renderer::RenderSkyPass() {
     m_skyShader.SetFloat("uSunIntensity", sun.intensity);
     m_skyShader.SetFloat("uDaylight", lighting.daylight);
     m_skyShader.SetFloat("uStars", lighting.stars);
+    m_skyShader.SetInt("uAnimeSky", m_config.style == core::RenderStyle::Anime ? 1 : 0);
     m_fullscreenTriangle.Draw();
     ++m_stats.drawCalls;
     m_stats.triangles += 1;
@@ -603,7 +611,25 @@ void Renderer::RenderPostPass() {
     m_postShader.SetFloat("uBloomStrength", useBloom ? m_config.bloomStrength : 0.0f);
     m_postShader.SetInt("uUseBloom", useBloom ? 1 : 0);
     m_postShader.SetInt("uUseTonemap", 1);
-    m_postShader.SetFloat("uVignette", 0.28f);
+
+    const bool cel = m_config.style == core::RenderStyle::Anime;
+    const bool outline = cel && m_config.outlines && m_sceneTarget.DepthTexture() != 0;
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, m_sceneTarget.DepthTexture());
+    m_postShader.SetInt("uDepthTexture", 2);
+    m_postShader.SetVec2("uInvResolution",
+                         vec2(1.0f / static_cast<float>(std::max(1, m_sceneTarget.Width())),
+                              1.0f / static_cast<float>(std::max(1, m_sceneTarget.Height()))));
+    m_postShader.SetInt("uOutlineEnabled", outline ? 1 : 0);
+    m_postShader.SetFloat("uOutlineThickness", m_config.outlineThickness);
+    m_postShader.SetFloat("uOutlineStrength", m_config.outlineStrength);
+    m_postShader.SetVec3("uOutlineColor", vec3(0.05f, 0.045f, 0.08f));
+    m_postShader.SetFloat("uNearPlane", m_frame.camera ? m_frame.camera->NearPlane() : 0.1f);
+    m_postShader.SetFloat("uFarPlane", m_frame.camera ? m_frame.camera->FarPlane() : 1000.0f);
+    m_postShader.SetInt("uCelShading", cel ? 1 : 0);
+    m_postShader.SetFloat("uSaturation", cel ? m_config.saturation * 1.08f : m_config.saturation);
+    m_postShader.SetInt("uPosterizeLevels", m_config.posterizeLevels);
+    m_postShader.SetFloat("uVignette", cel ? 0.12f : 0.28f);
     m_fullscreenTriangle.Draw();
     ++m_stats.drawCalls;
 

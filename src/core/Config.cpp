@@ -62,6 +62,52 @@ bool ParseInt(std::string value, int& out) {
     }
 }
 
+// Applies a performance preset. Explicit flags that follow --quality override
+// the preset, so "--quality=low --msaa=4" ends up with 4x MSAA.
+void ApplyQualityPreset(AppConfig& c, const std::string& preset) {
+    if (preset == "low") {
+        c.render.msaaSamples = 1;
+        c.render.renderScale = 0.85f;
+        c.render.shadowMapSize = 1024;
+        c.render.viewDistance = 520.0f;
+        c.render.bloom = false;
+        c.world.grassCount = 22000;
+        c.world.treeCount = 600;
+        c.world.rockCount = 240;
+    } else if (preset == "medium") {
+        c.render.msaaSamples = 2;
+        c.render.renderScale = 1.0f;
+        c.render.shadowMapSize = 2048;
+        c.render.viewDistance = 700.0f;
+        c.render.bloom = true;
+        c.world.grassCount = 38000;
+        c.world.treeCount = 800;
+    } else if (preset == "high") {
+        c.render.msaaSamples = 4;
+        c.render.renderScale = 1.0f;
+        c.render.shadowMapSize = 2048;
+        c.render.viewDistance = 900.0f;
+        c.render.bloom = true;
+        c.world.grassCount = 60000;
+        c.world.treeCount = 900;
+    } else if (preset == "ultra") {
+        c.render.msaaSamples = 4;
+        c.render.renderScale = 1.15f;
+        c.render.shadowMapSize = 4096;
+        c.render.viewDistance = 1300.0f;
+        c.render.bloom = true;
+        c.world.grassCount = 100000;
+        c.world.treeCount = 1400;
+    } else {
+        FR_WARN("Unknown quality preset '%s' (use low, medium, high or ultra).", preset.c_str());
+        return;
+    }
+    FR_INFO("Quality preset '%s': %dx MSAA, %.2f render scale, %d shadow map, %.0f m view distance, "
+            "%d trees, %d grass.",
+            preset.c_str(), c.render.msaaSamples, c.render.renderScale, c.render.shadowMapSize,
+            c.render.viewDistance, c.world.treeCount, c.world.grassCount);
+}
+
 // Applies "section.key = value". Returns false when the key/value pair is unknown
 // or cannot be parsed, so the caller can report it uniformly.
 bool ApplySetting(AppConfig& c, const std::string& fullKey, const std::string& value, std::string& section) {
@@ -90,6 +136,25 @@ bool ApplySetting(AppConfig& c, const std::string& fullKey, const std::string& v
     if (key == "render.showfoliage") return ParseBool(value, c.render.showFoliage);
     if (key == "render.showshadows") return ParseBool(value, c.render.showShadows);
     if (key == "render.shadowsfromfoliage") return ParseBool(value, c.render.shadowsFromFoliage);
+    if (key == "render.style") {
+        const std::string style = Lower(Trim(value));
+        if (style == "anime" || style == "npr" || style == "toon" || style == "cel") {
+            c.render.style = RenderStyle::Anime;
+            return true;
+        }
+        if (style == "realistic" || style == "realism" || style == "pbr") {
+            c.render.style = RenderStyle::Realistic;
+            return true;
+        }
+        return false;
+    }
+    if (key == "render.celsteps") return ParseInt(value, c.render.celSteps);
+    if (key == "render.outlines") return ParseBool(value, c.render.outlines);
+    if (key == "render.outlinethickness") return ParseFloat(value, c.render.outlineThickness);
+    if (key == "render.outlinestrength") return ParseFloat(value, c.render.outlineStrength);
+    if (key == "render.rimstrength") return ParseFloat(value, c.render.rimStrength);
+    if (key == "render.saturation") return ParseFloat(value, c.render.saturation);
+    if (key == "render.posterize") return ParseInt(value, c.render.posterizeLevels);
 
     if (key == "world.seed") return ParseInt(value, c.world.seed);
     if (key == "world.terrainsize") return ParseFloat(value, c.world.terrainSize);
@@ -193,6 +258,14 @@ bool SaveConfigFile(const std::string& path, const AppConfig& c) {
          << "\nfogDensity = " << c.render.fogDensity
          << "\nfogHeightFalloff = " << c.render.fogHeightFalloff
          << "\nviewDistance = " << c.render.viewDistance
+         << "\nstyle = " << (c.render.style == RenderStyle::Anime ? "anime" : "realistic")
+         << "\ncelSteps = " << c.render.celSteps
+         << "\noutlines = " << (c.render.outlines ? "true" : "false")
+         << "\noutlineThickness = " << c.render.outlineThickness
+         << "\noutlineStrength = " << c.render.outlineStrength
+         << "\nrimStrength = " << c.render.rimStrength
+         << "\nsaturation = " << c.render.saturation
+         << "\nposterize = " << c.render.posterizeLevels
          << "\nbloom = " << (c.render.bloom ? "true" : "false")
          << "\nbloomStrength = " << c.render.bloomStrength
          << "\nshowSky = " << (c.render.showSky ? "true" : "false")
@@ -254,6 +327,10 @@ void PrintUsage(const char* exe) {
         "  --log-level=<level>    trace|debug|info|warn|error (default info)\n"
         "  --log-file=<path>      Tee log output to a file (default frontier.log)\n"
         "  --render-scale=<f>     Internal 3D resolution scale, 0.25..2 (default 1)\n"
+        "  --style=<name>         Look of the frame: realistic | anime (NPR)\n"
+        "  --cel-steps=<n>        Cel shading bands for --style=anime (default 3)\n"
+        "  --outline[=0|1]        Silhouette outlines for --style=anime\n"
+        "  --quality=<name>       low | medium | high | ultra performance preset\n"
         "  --no-hdr               Disable the HDR scene target\n"
         "  --no-bloom             Disable bloom\n"
         "  --safe-mode            Low-end preset: no MSAA/HDR/bloom, 1024 shadow map,\n"
@@ -332,6 +409,14 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "log-level") { ApplySetting(config, "app.loglevel", inferredValue(), value); continue; }
         if (key == "log-file") { ApplySetting(config, "app.logfile", inferredValue(), value); continue; }
         if (key == "render-scale") { ApplySetting(config, "render.renderscale", inferredValue(), value); continue; }
+        if (key == "style") { if (!ApplySetting(config, "render.style", inferredValue(), value)) { FR_WARN("Unknown style '%s' (use realistic or anime)", value.c_str()); } continue; }
+        if (key == "cel-steps") { ApplySetting(config, "render.celsteps", inferredValue(), value); continue; }
+        if (key == "outline" || key == "outlines") { ApplySetting(config, "render.outlines", inferredValue(), value); continue; }
+        if (key == "posterize") { ApplySetting(config, "render.posterize", inferredValue(), value); continue; }
+        if (key == "quality") {
+            ApplyQualityPreset(config, Lower(Trim(inferredValue())));
+            continue;
+        }
         if (key == "no-hdr") { ApplySetting(config, "render.hdr", "false", value); continue; }
         if (key == "no-bloom") { ApplySetting(config, "render.bloom", "false", value); continue; }
         if (key == "safe-mode" || key == "safe") {
@@ -374,6 +459,12 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
     config.render.exposure = std::clamp(config.render.exposure, 0.05f, 8.0f);
     config.render.viewDistance = std::clamp(config.render.viewDistance, 50.0f, 5000.0f);
     config.render.shadowMapSize = std::clamp(config.render.shadowMapSize, 256, 8192);
+    config.render.celSteps = std::clamp(config.render.celSteps, 2, 8);
+    config.render.outlineThickness = std::clamp(config.render.outlineThickness, 0.5f, 6.0f);
+    config.render.outlineStrength = std::clamp(config.render.outlineStrength, 0.0f, 1.0f);
+    config.render.rimStrength = std::clamp(config.render.rimStrength, 0.0f, 2.0f);
+    config.render.saturation = std::clamp(config.render.saturation, 0.0f, 2.0f);
+    config.render.posterizeLevels = std::clamp(config.render.posterizeLevels, 0, 64);
     config.world.terrainResolution = std::clamp(config.world.terrainResolution, 16, 1024);
     config.world.terrainSize = std::clamp(config.world.terrainSize, 100.0f, 8000.0f);
     config.world.terrainAmplitude = std::clamp(config.world.terrainAmplitude, 1.0f, 400.0f);

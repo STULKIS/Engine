@@ -29,6 +29,8 @@ public:
     void Resolve() const;
 
     GLuint ColorTexture() const { return m_colorTexture; }
+    // Resolved depth, sampleable as a plain sampler2D (used by the NPR outline).
+    GLuint DepthTexture() const { return m_depthTexture; }
     int Width() const { return m_width; }
     int Height() const { return m_height; }
     int Samples() const { return m_samples; }
@@ -44,6 +46,7 @@ private:
     GLuint m_colorTexture = 0;
     GLuint m_colorRenderbuffer = 0;
     GLuint m_depthRenderbuffer = 0;
+    GLuint m_depthTexture = 0;
     int m_width = 0;
     int m_height = 0;
     int m_samples = 1;

@@ -15,6 +15,11 @@ struct WindowConfig {
     std::string title = "Frontier Engine";
 };
 
+// Overall look of the frame. "Anime" is a hand-authored NPR pipeline: banded
+// cel lighting, rim light, hard shadow terminator, silhouette outlines and a
+// stylised sky. It is original work (no engine or anime asset is copied).
+enum class RenderStyle { Realistic = 0, Anime = 1 };
+
 struct RenderConfig {
     int shadowMapSize = 2048;
     int msaaSamples = 4;
@@ -32,6 +37,16 @@ struct RenderConfig {
     bool showFoliage = true;
     bool showShadows = true;
     bool shadowsFromFoliage = true;
+
+    // --- Stylised (NPR) rendering -------------------------------------------
+    RenderStyle style = RenderStyle::Realistic;
+    int celSteps = 3;                 // light bands in cel shading (2..8)
+    bool outlines = true;             // silhouette outlines (anime only)
+    float outlineThickness = 1.6f;    // pixels
+    float outlineStrength = 0.9f;     // 0..1
+    float rimStrength = 0.45f;        // rim light contribution
+    float saturation = 1.06f;         // colour grade
+    int posterizeLevels = 0;          // 0 = off, else quantise the final image
 };
 
 struct WorldConfig {

@@ -14,6 +14,12 @@
 //   uniform mat4 uLightSpaceMatrix;
 //   uniform float uShadowTexelSize;
 //   uniform int uShadowEnabled;
+// and, for the stylised (anime) path:
+//   uniform vec3 uCameraPos;
+//   uniform int uCelShading;
+//   uniform float uCelSteps;
+//   uniform float uRimStrength;
+//   uniform vec3 uRimColor;
 
 float SampleShadow(vec3 worldPosition, vec3 normal, float slopeBias) {
     if (uShadowEnabled == 0) {
@@ -43,12 +49,39 @@ vec3 AmbientLight(vec3 normal) {
     return mix(uAmbientGround, uAmbientSky, up);
 }
 
+// Quantises a light term into hard bands with a narrow anti-aliased edge, which
+// is what makes cel shading read as flat colour instead of a gradient.
+float CelBand(float ndl) {
+    float steps = max(2.0, uCelSteps);
+    float scaled = clamp(ndl, 0.0, 1.0) * steps;
+    float lower = floor(scaled);
+    float fraction = scaled - lower;
+    float stepped = (lower + smoothstep(0.46, 0.54, fraction)) / steps;
+    return clamp(stepped, 0.0, 1.0);
+}
+
 vec3 ApplySunlight(vec3 albedo, vec3 normal, vec3 worldPosition, float shadow) {
     float ndl = max(dot(normal, -uSunDirection), 0.0);
+    vec3 ambient = AmbientLight(normal) * albedo;
+
+    if (uCelShading == 1) {
+        // Two-tone shadow: the shadow map is thresholded so the terminator is
+        // crisp instead of a PCF gradient.
+        float shadowTerm = smoothstep(0.35, 0.65, shadow);
+        float lit = CelBand(ndl) * mix(0.22, 1.0, shadowTerm);
+        vec3 color = albedo * (uSunColor * uSunIntensity * lit) + ambient * 1.08;
+
+        // Rim light: bright edge where the surface turns away from the camera.
+        vec3 viewDirection = normalize(uCameraPos - worldPosition);
+        float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
+        float rim = pow(1.0 - facing, 3.0);
+        color += uRimColor * rim * uRimStrength * (0.35 + 0.65 * shadowTerm) * (0.35 + 0.65 * ndl);
+        return color;
+    }
+
     // Slight wrap lighting softens the terminator on vegetation and terrain.
     float wrapped = clamp((ndl + 0.18) / 1.18, 0.0, 1.0);
     vec3 direct = uSunColor * uSunIntensity * wrapped * shadow;
-    vec3 ambient = AmbientLight(normal) * albedo;
     return albedo * direct + ambient;
 }
 

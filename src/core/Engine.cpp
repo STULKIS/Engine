@@ -298,7 +298,8 @@ bool Engine::Initialize(AppConfig& config) {
 
     FR_INFO("Controls: WASD move | mouse look | Space jump | Shift sprint | Ctrl walk");
     FR_INFO("          F1 panel | F2 wireframe | F3 shadows | F4 foliage | F5 water");
-    FR_INFO("          F6 pause time | F11 fullscreen | F12 screenshot | R respawn | Esc release mouse");
+    FR_INFO("          F6 pause time | F7 render style | F11 fullscreen | F12 screenshot");
+    FR_INFO("          R respawn | G new world | Esc release mouse");
     FR_INFO("Frontier Engine initialized successfully.");
     return true;
 }
@@ -405,6 +406,11 @@ void Engine::Update(float deltaSeconds) {
         }
         if (m_input->WasActionPressed(Action::ToggleWater)) {
             m_config.render.showWater = !m_config.render.showWater;
+        }
+        if (m_input->WasActionPressed(Action::ToggleStyle)) {
+            const bool anime = m_config.render.style == RenderStyle::Anime;
+            m_config.render.style = anime ? RenderStyle::Realistic : RenderStyle::Anime;
+            FR_INFO("Render style: %s", anime ? "realistic" : "anime (cel shading + outlines)");
         }
         if (m_input->WasActionPressed(Action::ToggleTimePause)) {
             m_world->Time().SetPaused(!m_world->Time().Paused());

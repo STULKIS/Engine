@@ -30,6 +30,23 @@ GLuint CreateColorTexture(int width, int height, bool hdr) {
     return texture;
 }
 
+GLuint CreateDepthTexture(int width, int height) {
+    GLuint texture = 0;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0,
+                 GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    // Sampled by hand for the outline shader, so no compare mode and no
+    // filtering (LINEAR on a depth texture is only valid with compare mode).
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return texture;
+}
+
 } // namespace
 
 SceneTarget::~SceneTarget() {
@@ -58,6 +75,7 @@ bool SceneTarget::Create(int width, int height, int samples, bool hdr) {
 
 bool SceneTarget::CreateAttachments() {
     m_colorTexture = CreateColorTexture(m_width, m_height, m_hdr);
+    m_depthTexture = CreateDepthTexture(m_width, m_height);
 
     glGenFramebuffers(1, &m_drawFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_drawFbo);
@@ -82,16 +100,14 @@ bool SceneTarget::CreateAttachments() {
         glGenFramebuffers(1, &m_resolveFbo);
         glBindFramebuffer(GL_FRAMEBUFFER, m_resolveFbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colorTexture, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTexture, 0);
         if (CheckFramebuffer("scene-resolve") != GL_FRAMEBUFFER_COMPLETE) {
             Destroy();
             return false;
         }
     } else {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colorTexture, 0);
-        glGenRenderbuffers(1, &m_depthRenderbuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, m_depthRenderbuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, m_width, m_height);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRenderbuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTexture, 0);
         if (CheckFramebuffer("scene-single-sample") != GL_FRAMEBUFFER_COMPLETE) {
             Destroy();
             return false;
@@ -115,6 +131,10 @@ void SceneTarget::Destroy() {
     if (m_colorTexture) {
         glDeleteTextures(1, &m_colorTexture);
         m_colorTexture = 0;
+    }
+    if (m_depthTexture) {
+        glDeleteTextures(1, &m_depthTexture);
+        m_depthTexture = 0;
     }
     if (m_colorRenderbuffer) {
         glDeleteRenderbuffers(1, &m_colorRenderbuffer);
@@ -155,7 +175,10 @@ void SceneTarget::Resolve() const {
     }
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_drawFbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_resolveFbo);
-    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    // Colour for the post pass, depth for the outline (both are multisampled,
+    // so they have to be resolved before they can be sampled).
+    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height,
+                      GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

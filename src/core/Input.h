@@ -26,6 +26,7 @@ enum class Action {
     ToggleFoliage,
     ToggleWater,
     ToggleTimePause,
+    ToggleStyle,
     Screenshot,
     Count
 };

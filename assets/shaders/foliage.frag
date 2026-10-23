@@ -25,6 +25,13 @@ uniform mat4 uLightSpaceMatrix;
 uniform float uShadowTexelSize;
 uniform int uShadowEnabled;
 
+// Stylised (NPR) shading controls. The realistic path ignores these.
+uniform int uCelShading;
+uniform float uCelSteps;
+uniform float uRimStrength;
+uniform vec3 uRimColor;
+
+
 #include "common/noise.glsl"
 #include "common/lighting.glsl"
 

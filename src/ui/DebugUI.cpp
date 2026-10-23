@@ -290,6 +290,30 @@ void DebugUI::DrawRenderPanel(core::AppConfig& config, render::Renderer& rendere
             config.render.shadowMapSize = shadowIndex == 0 ? 1024 : (shadowIndex == 1 ? 2048 : 4096);
         }
 
+        const char* styleLabels[] = {"Realistic", "Anime (NPR)"};
+        int styleIndex = config.render.style == core::RenderStyle::Anime ? 1 : 0;
+        ImGui::SetNextItemWidth(190.0f);
+        if (ImGui::Combo("Style (F7)", &styleIndex, styleLabels, 2)) {
+            config.render.style = styleIndex == 1 ? core::RenderStyle::Anime : core::RenderStyle::Realistic;
+        }
+
+        if (config.render.style == core::RenderStyle::Anime) {
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderInt("Cel bands", &config.render.celSteps, 2, 8);
+            ImGui::SameLine();
+            ImGui::Checkbox("Outlines", &config.render.outlines);
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderFloat("Outline width", &config.render.outlineThickness, 0.5f, 4.0f, "%.1f px");
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderFloat("Outline strength", &config.render.outlineStrength, 0.0f, 1.0f, "%.2f");
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderFloat("Rim light", &config.render.rimStrength, 0.0f, 1.5f, "%.2f");
+            ImGui::SetNextItemWidth(190.0f);
+            ImGui::SliderInt("Posterize", &config.render.posterizeLevels, 0, 24);
+        }
+        ImGui::SetNextItemWidth(190.0f);
+        ImGui::SliderFloat("Saturation", &config.render.saturation, 0.0f, 2.0f, "%.2f");
+
         const char* msaaLabels[] = {"Off", "2x", "4x", "8x"};
         int msaaIndex = config.render.msaaSamples <= 1 ? 0 : (config.render.msaaSamples <= 2 ? 1
                             : (config.render.msaaSamples <= 4 ? 2 : 3));
