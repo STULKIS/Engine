@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Frontier Engine - fallback build without CMake.
+# Derecho Engine - fallback build without CMake.
 #
 # The primary build system is CMake (see README.md). This script exists for
 # minimal environments or CI images where CMake is unavailable. It expects SDL2
@@ -102,12 +102,12 @@ for pid in "${pids[@]}"; do
     wait "$pid" || { echo "compilation failed" >&2; exit 1; }
 done
 
-echo "Linking $OUT/frontier..."
-"$CXX" -O2 "$OBJ"/*.o -o "$OUT/frontier" $SDL_LIBS -ldl -lpthread -lm
+echo "Linking $OUT/derecho..."
+"$CXX" -O2 "$OBJ"/*.o -o "$OUT/derecho" $SDL_LIBS -ldl -lpthread -lm
 
 # Runtime assets next to the executable.
 mkdir -p "$OUT/assets"
 cp -r "$ROOT/assets/." "$OUT/assets/"
 
-echo "Done: $OUT/frontier"
-echo "Run: cd $OUT && ./frontier   (headless smoke test: ./frontier --headless=120)"
+echo "Done: $OUT/derecho"
+echo "Run: cd $OUT && ./derecho   (headless smoke test: ./derecho --headless=120)"

@@ -1,4 +1,4 @@
-// Frontier Engine - application lifetime, main loop and subsystem orchestration.
+// Derecho Engine - application lifetime, main loop and subsystem orchestration.
 #pragma once
 
 #include "core/Config.h"
@@ -12,13 +12,13 @@
 
 union SDL_Event;
 
-namespace frontier::core { class Window; }
-namespace frontier::game { class Player; }
-namespace frontier::render { class Renderer; }
-namespace frontier::ui { class DebugUI; struct DebugActions; }
-namespace frontier::world { class World; }
+namespace derecho::core { class Window; }
+namespace derecho::game { class Player; }
+namespace derecho::render { class Renderer; }
+namespace derecho::ui { class DebugUI; struct DebugActions; }
+namespace derecho::world { class World; }
 
-namespace frontier::core {
+namespace derecho::core {
 
 class Engine {
 public:
@@ -71,4 +71,4 @@ private:
     bool m_screenshotRequested = false;
 };
 
-} // namespace frontier::core
+} // namespace derecho::core

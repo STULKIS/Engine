@@ -1,4 +1,4 @@
-// Frontier Engine - input state, action mapping and mouse capture.
+// Derecho Engine - input state, action mapping and mouse capture.
 #pragma once
 
 #include <SDL.h>
@@ -8,7 +8,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace frontier::core {
+namespace derecho::core {
 
 // Logical actions decouple gameplay from physical keys.
 enum class Action {
@@ -93,4 +93,4 @@ private:
     void UpdateActionState();
 };
 
-} // namespace frontier::core
+} // namespace derecho::core

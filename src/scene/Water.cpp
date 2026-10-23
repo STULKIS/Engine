@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 void Water::Configure(float level, float size, int resolution) {
     m_level = level;
@@ -16,7 +16,7 @@ void Water::Configure(float level, float size, int resolution) {
 
 bool Water::BuildRenderResources(const Terrain& terrain) {
     if (terrain.Empty()) {
-        FR_ERROR("Water::BuildRenderResources requires generated terrain.");
+        DE_ERROR("Water::BuildRenderResources requires generated terrain.");
         return false;
     }
     // The water plane extends slightly beyond the terrain so the horizon never
@@ -30,10 +30,10 @@ bool Water::BuildRenderResources(const Terrain& terrain) {
         [](float, float) { return vec3(0.05f, 0.16f, 0.2f); });
 
     if (!m_mesh.Create(data)) {
-        FR_ERROR("Failed to create water mesh.");
+        DE_ERROR("Failed to create water mesh.");
         return false;
     }
-    FR_INFO("Water surface built: level %.1f m, %.0f m across, %zu triangles.",
+    DE_INFO("Water surface built: level %.1f m, %.0f m across, %zu triangles.",
             m_level, m_size, m_mesh.TriangleCount());
     return true;
 }
@@ -42,4 +42,4 @@ void Water::ReleaseRenderResources() {
     m_mesh.Destroy();
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

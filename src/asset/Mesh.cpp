@@ -1,4 +1,4 @@
-// Frontier Engine - OBJ import/export and mesh helpers.
+// Derecho Engine - OBJ import/export and mesh helpers.
 #include "asset/Mesh.h"
 
 #include <algorithm>
@@ -9,7 +9,7 @@
 
 #include <glm/gtc/constants.hpp>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 namespace {
 
@@ -201,7 +201,7 @@ bool SaveObj(const std::string& path, const MeshData& mesh, const std::string& n
         error = "could not write '" + path + "'";
         return false;
     }
-    file << "# Frontier Engine placeholder asset\n";
+    file << "# Derecho Engine placeholder asset\n";
     file << "# " << name << "\n";
     file << "o " << name << "\n";
     file.setf(std::ios::fixed);
@@ -298,4 +298,4 @@ void AppendCylinder(MeshData& mesh, const vec3& base, float radius, float height
     }
 }
 
-} // namespace frontier::asset
+} // namespace derecho::asset

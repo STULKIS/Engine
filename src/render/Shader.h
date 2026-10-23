@@ -1,4 +1,4 @@
-// Frontier Engine - GLSL program wrapper with cached uniform locations.
+// Derecho Engine - GLSL program wrapper with cached uniform locations.
 #pragma once
 
 #include "math/Math.h"
@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace frontier::render {
+namespace derecho::render {
 
 class Shader {
 public:
@@ -60,4 +60,4 @@ bool ReadTextFile(const std::string& path, std::string& outContents);
 // headless asset check and (mirrored in Python) the offline shader validator.
 bool ExpandShaderIncludes(const std::string& path, std::string& outSource, std::string& error);
 
-} // namespace frontier::render
+} // namespace derecho::render

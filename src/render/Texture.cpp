@@ -8,7 +8,7 @@
 #include <cmath>
 #include <utility>
 
-namespace frontier::render {
+namespace derecho::render {
 
 Texture::~Texture() {
     Destroy();
@@ -51,7 +51,7 @@ void Texture::Bind(int unit) const {
 bool Texture::CreateRGBA8(int width, int height, const std::vector<uint8_t>& pixels, bool srgb,
                           const TextureDesc& desc) {
     if (width <= 0 || height <= 0 || pixels.size() < static_cast<size_t>(width) * height * 4) {
-        FR_ERROR("Texture::CreateRGBA8 invalid data (%dx%d, %zu bytes)", width, height, pixels.size());
+        DE_ERROR("Texture::CreateRGBA8 invalid data (%dx%d, %zu bytes)", width, height, pixels.size());
         return false;
     }
     Destroy();
@@ -78,7 +78,7 @@ bool Texture::CreateRGBA8(int width, int height, const std::vector<uint8_t>& pix
 
 bool Texture::CreateRGBA32F(int width, int height, const std::vector<float>& pixels, const TextureDesc& desc) {
     if (width <= 0 || height <= 0 || pixels.size() < static_cast<size_t>(width) * height * 4) {
-        FR_ERROR("Texture::CreateRGBA32F invalid data (%dx%d, %zu floats)", width, height, pixels.size());
+        DE_ERROR("Texture::CreateRGBA32F invalid data (%dx%d, %zu floats)", width, height, pixels.size());
         return false;
     }
     Destroy();
@@ -99,7 +99,7 @@ bool Texture::CreateRGBA32F(int width, int height, const std::vector<float>& pix
 
 bool Texture::CreateR32F(int width, int height, const std::vector<float>& pixels, bool repeat) {
     if (width <= 0 || height <= 0 || pixels.size() < static_cast<size_t>(width) * height) {
-        FR_ERROR("Texture::CreateR32F invalid data (%dx%d, %zu floats)", width, height, pixels.size());
+        DE_ERROR("Texture::CreateR32F invalid data (%dx%d, %zu floats)", width, height, pixels.size());
         return false;
     }
     Destroy();
@@ -267,4 +267,4 @@ std::vector<float> SkyGradientLUT(int width) {
 }
 
 } // namespace procedural
-} // namespace frontier::render
+} // namespace derecho::render

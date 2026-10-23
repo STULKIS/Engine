@@ -1,4 +1,4 @@
-// Frontier Engine - generated placeholder art.
+// Derecho Engine - generated placeholder art.
 //
 // The repository cannot ship third-party game art, so the engine writes a small
 // set of original assets on first run: a low-poly character, a crystal, a rock,
@@ -9,10 +9,10 @@
 
 #include <string>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 // Writes any missing placeholder files under `root`. Returns false only when a
 // file exists but cannot be written; existing files are never overwritten.
 bool EnsurePlaceholderAssets(const std::string& root, std::string& error);
 
-} // namespace frontier::asset
+} // namespace derecho::asset

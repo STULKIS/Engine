@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace frontier::core {
+namespace derecho::core {
 namespace {
 
 inline float Fade(float t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
@@ -195,4 +195,4 @@ float Cellular2D(float x, float y, uint32_t seed) {
     return std::sqrt(best);
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

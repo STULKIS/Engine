@@ -14,14 +14,14 @@
       "displayName": "Linux Release (fetch SDL2)",
       "description": "Download and build SDL2 when it is not installed.",
       "binaryDir": "${sourceDir}/build/linux-fetch",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "FRONTIER_FETCH_SDL2": "ON" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "DERECHO_FETCH_SDL2": "ON" }
     },
     {
       "name": "windows",
       "displayName": "Windows Release (fetch SDL2)",
       "description": "Visual Studio or MinGW; SDL2 is downloaded and copied next to the exe.",
       "binaryDir": "${sourceDir}/build/windows",
-      "cacheVariables": { "FRONTIER_FETCH_SDL2": "ON" }
+      "cacheVariables": { "DERECHO_FETCH_SDL2": "ON" }
     }
   ],
   "buildPresets": [

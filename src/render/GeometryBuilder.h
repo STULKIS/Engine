@@ -1,4 +1,4 @@
-// Frontier Engine - original procedural geometry.
+// Derecho Engine - original procedural geometry.
 //
 // Everything visible in the world is built from these primitives at load time:
 // no external meshes are shipped or fetched.
@@ -8,7 +8,7 @@
 
 #include <functional>
 
-namespace frontier::render::geometry {
+namespace derecho::render::geometry {
 
 // Heightfield grid. `height(x,z)` receives local coordinates in metres.
 MeshData MakeTerrainGrid(int resolution, float size,
@@ -47,4 +47,4 @@ MeshData MakeFullscreenTriangle();
 MeshData MakeCylinder(const vec3& base, const vec3& tip, float baseRadius, float tipRadius,
                       int segments, const vec4& color);
 
-} // namespace frontier::render::geometry
+} // namespace derecho::render::geometry

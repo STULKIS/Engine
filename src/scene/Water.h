@@ -1,9 +1,9 @@
-// Frontier Engine - procedural lake surface with wind-driven Gerstner waves.
+// Derecho Engine - procedural lake surface with wind-driven Gerstner waves.
 #pragma once
 
 #include "render/Mesh.h"
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 class Terrain;
 
@@ -29,4 +29,4 @@ private:
     render::Mesh m_mesh;
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

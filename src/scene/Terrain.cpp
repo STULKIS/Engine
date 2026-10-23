@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace frontier::scene {
+namespace derecho::scene {
 // Defined here so the unique_ptr members see complete noise types.
 Terrain::Terrain() = default;
 Terrain::~Terrain() = default;
@@ -41,7 +41,7 @@ void Terrain::Generate(const TerrainSettings& settings) {
     }
 
     m_bounds = {vec3(-half, m_minHeight, -half), vec3(half, m_maxHeight, half)};
-    FR_INFO("Terrain generated: %.0f m, %d samples, height range %.1f..%.1f m, seed %u",
+    DE_INFO("Terrain generated: %.0f m, %d samples, height range %.1f..%.1f m, seed %u",
             m_settings.size, m_samples, m_minHeight, m_maxHeight, m_settings.seed);
 }
 
@@ -225,7 +225,7 @@ vec3 Terrain::MaterialColor(float worldX, float worldZ, float height, const vec3
 
 bool Terrain::BuildRenderResources() {
     if (m_heights.empty()) {
-        FR_ERROR("Terrain::BuildRenderResources called before Generate().");
+        DE_ERROR("Terrain::BuildRenderResources called before Generate().");
         return false;
     }
 
@@ -238,16 +238,16 @@ bool Terrain::BuildRenderResources() {
     render::MeshData data = render::geometry::MakeTerrainGrid(settings.resolution, settings.size,
                                                               heightFn, colorFn);
     if (!m_mesh.Create(data)) {
-        FR_ERROR("Failed to create terrain mesh.");
+        DE_ERROR("Failed to create terrain mesh.");
         return false;
     }
 
     if (!m_heightTexture.CreateR32F(m_samples, m_samples, m_heights, false)) {
-        FR_ERROR("Failed to create terrain height texture.");
+        DE_ERROR("Failed to create terrain height texture.");
         return false;
     }
 
-    FR_INFO("Terrain GPU resources built: %zu vertices, %zu triangles.",
+    DE_INFO("Terrain GPU resources built: %zu vertices, %zu triangles.",
             m_mesh.VertexCount(), m_mesh.TriangleCount());
     return true;
 }
@@ -257,4 +257,4 @@ void Terrain::ReleaseRenderResources() {
     m_heightTexture.Destroy();
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

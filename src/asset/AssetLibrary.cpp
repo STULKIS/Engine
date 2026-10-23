@@ -1,4 +1,4 @@
-// Frontier Engine - asset scanning and lookup.
+// Derecho Engine - asset scanning and lookup.
 #include "asset/AssetLibrary.h"
 
 #include "core/Log.h"
@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 namespace fs = std::filesystem;
 
@@ -86,20 +86,20 @@ bool AssetLibrary::Scan(const std::string& root, std::string& error) {
         m_textures.push_back(std::move(asset));
     }
 
-    FR_INFO("Assets: %zu models, %zu textures from '%s'%s.", m_meshes.size(), m_textures.size(),
+    DE_INFO("Assets: %zu models, %zu textures from '%s'%s.", m_meshes.size(), m_textures.size(),
             root.c_str(), m_failures > 0 ? " (with failures)" : "");
     for (const MeshAsset& mesh : m_meshes) {
-        FR_INFO("  model   %-18s %zu verts  %zu tris", mesh.name.c_str(), mesh.mesh.vertices.size(),
+        DE_INFO("  model   %-18s %zu verts  %zu tris", mesh.name.c_str(), mesh.mesh.vertices.size(),
                 mesh.mesh.indices.size() / 3);
     }
     for (const TextureAsset& texture : m_textures) {
-        FR_INFO("  texture %-18s %dx%d", texture.name.c_str(), texture.image.width,
+        DE_INFO("  texture %-18s %dx%d", texture.name.c_str(), texture.image.width,
                 texture.image.height);
     }
 
     if (!problems.empty()) {
         for (const std::string& problem : problems) {
-            FR_WARN("Asset problem: %s", problem.c_str());
+            DE_WARN("Asset problem: %s", problem.c_str());
         }
         error = problems.front();
         return false;
@@ -125,4 +125,4 @@ const TextureAsset* AssetLibrary::FindTexture(const std::string& name) const {
     return nullptr;
 }
 
-} // namespace frontier::asset
+} // namespace derecho::asset

@@ -14,14 +14,14 @@
 #include <algorithm>
 #include <cstdio>
 
-namespace frontier::ui {
+namespace derecho::ui {
 
 bool DebugUI::Initialize(core::Window& window, bool showDemo) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.IniFilename = "frontier_imgui.ini";
+    io.IniFilename = "derecho_imgui.ini";
     io.LogFilename = nullptr;
     m_showDemo = showDemo;
 
@@ -42,19 +42,19 @@ bool DebugUI::Initialize(core::Window& window, bool showDemo) {
     style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.45f, 0.72f, 0.55f, 1.0f);
 
     if (!ImGui_ImplSDL2_InitForOpenGL(window.Handle(), window.Context())) {
-        FR_ERROR("ImGui SDL2 backend initialization failed.");
+        DE_ERROR("ImGui SDL2 backend initialization failed.");
         ImGui::DestroyContext();
         return false;
     }
     if (!ImGui_ImplOpenGL3_Init("#version 450")) {
-        FR_ERROR("ImGui OpenGL3 backend initialization failed.");
+        DE_ERROR("ImGui OpenGL3 backend initialization failed.");
         ImGui_ImplSDL2_Shutdown();
         ImGui::DestroyContext();
         return false;
     }
 
     m_initialized = true;
-    FR_INFO("ImGui debug UI initialized (Dear ImGui %s).", IMGUI_VERSION);
+    DE_INFO("ImGui debug UI initialized (Dear ImGui %s).", IMGUI_VERSION);
     return true;
 }
 
@@ -87,7 +87,7 @@ void DebugUI::Draw(core::AppConfig& config, world::World& world, scene::Scene& e
     if (m_visible) {
         ImGui::SetNextWindowSize(ImVec2(430.0f, 560.0f), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowPos(ImVec2(16.0f, 16.0f), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("Frontier Engine", &m_visible, ImGuiWindowFlags_NoCollapse)) {
+        if (ImGui::Begin("Derecho Engine", &m_visible, ImGuiWindowFlags_NoCollapse)) {
             DrawOverview(config, world, player, renderer, frameStats, actions);
             ImGui::Separator();
             DrawWorldPanel(world, actions);
@@ -119,9 +119,18 @@ void DebugUI::Draw(core::AppConfig& config, world::World& world, scene::Scene& e
     }
 
     if (m_showAbout) {
-        ImGui::SetNextWindowSize(ImVec2(420.0f, 260.0f), ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("About Frontier Engine", &m_showAbout, ImGuiWindowFlags_NoCollapse)) {
-            ImGui::TextWrapped("Frontier Engine - an original procedural first-person outdoor sandbox.");
+        ImGui::SetNextWindowSize(ImVec2(460.0f, 320.0f), ImGuiCond_FirstUseEver);
+        if (ImGui::Begin("About Derecho Engine", &m_showAbout, ImGuiWindowFlags_NoCollapse)) {
+            const unsigned int logo = renderer.LogoTextureId();
+            if (logo != 0) {
+                ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(logo)),
+                             ImVec2(128.0f, 128.0f));
+                ImGui::SameLine();
+            }
+            ImGui::BeginGroup();
+            ImGui::TextWrapped("Derecho Engine - an original procedural first-person outdoor sandbox.");
+            ImGui::TextDisabled("Named for the straight-line windstorm: direct, sustained, fast.");
+            ImGui::EndGroup();
             ImGui::Spacing();
             ImGui::TextWrapped("All terrain, vegetation, textures and shaders in this build are generated "
                                "procedurally by the engine. No CryEngine code, shaders, assets or branding "
@@ -130,6 +139,7 @@ void DebugUI::Draw(core::AppConfig& config, world::World& world, scene::Scene& e
             ImGui::BulletText("C++20 / CMake / SDL2 / OpenGL 4.5 / GLM / Dear ImGui");
             ImGui::BulletText("Renderer: forward shading, PCF shadows, height fog, ACES");
             ImGui::BulletText("World: heightfield lake, instanced forests, wind, LOD");
+            ImGui::BulletText("Scene: JSON entities, native scripts, OBJ/PNG/TGA import");
             ImGui::BulletText("Press F1 to toggle this panel");
         }
         ImGui::End();
@@ -147,7 +157,7 @@ void DebugUI::DrawOverview(core::AppConfig& config, world::World& world, game::P
     const render::RenderStats& stats = renderer.Stats();
     const scene::TimeOfDay& time = world.Time();
 
-    ImGui::TextColored(ImVec4(0.55f, 0.85f, 0.65f, 1.0f), "Frontier Engine");
+    ImGui::TextColored(ImVec4(0.55f, 0.85f, 0.65f, 1.0f), "Derecho Engine");
     ImGui::SameLine();
     ImGui::TextDisabled("| procedural outdoor sandbox");
 
@@ -579,4 +589,4 @@ bool DebugUI::WantsKeyboard() const {
     return ImGui::GetIO().WantCaptureKeyboard;
 }
 
-} // namespace frontier::ui
+} // namespace derecho::ui

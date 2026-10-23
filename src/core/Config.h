@@ -1,10 +1,10 @@
-// Frontier Engine - runtime configuration (defaults + config file + CLI overrides).
+// Derecho Engine - runtime configuration (defaults + config file + CLI overrides).
 #pragma once
 
 #include <string>
 #include <vector>
 
-namespace frontier::core {
+namespace derecho::core {
 
 struct WindowConfig {
     int width = 1600;
@@ -12,7 +12,7 @@ struct WindowConfig {
     bool fullscreen = false;
     bool vsync = true;
     bool resizable = true;
-    std::string title = "Frontier Engine";
+    std::string title = "Derecho Engine";
 };
 
 // Overall look of the frame. "Anime" is a hand-authored NPR pipeline: banded
@@ -95,7 +95,7 @@ struct AppConfig {
     GameConfig game;
 
     std::string logLevel = "info";
-    std::string logFile = "frontier.log";
+    std::string logFile = "derecho.log";
     std::string assetsDir = "assets";
     bool headless = false;   // run N frames without presenting (CI smoke test)
     int headlessFrames = 120;
@@ -121,4 +121,4 @@ bool SaveConfigFile(const std::string& path, const AppConfig& config);
 
 void PrintUsage(const char* executable);
 
-} // namespace frontier::core
+} // namespace derecho::core

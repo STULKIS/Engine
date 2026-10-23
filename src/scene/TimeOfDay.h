@@ -1,4 +1,4 @@
-// Frontier Engine - time of day, sun/moon ephemeris and sky tinting.
+// Derecho Engine - time of day, sun/moon ephemeris and sky tinting.
 #pragma once
 
 #include "math/Math.h"
@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <string>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 struct SunSample {
     vec3 direction{0.0f, -1.0f, 0.0f}; // direction the light travels
@@ -60,4 +60,4 @@ private:
     bool m_paused = false;
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace frontier::game {
+namespace derecho::game {
 
 void Player::Spawn(const scene::Terrain& terrain, const vec3& position) {
     m_position = position;
@@ -212,4 +212,4 @@ bool Player::CanStandAt(const scene::Terrain& terrain, const vec3& position) con
     return normal.y >= m_settings.maxSlopeCos && ground <= position.y + m_settings.maxStepHeight;
 }
 
-} // namespace frontier::game
+} // namespace derecho::game

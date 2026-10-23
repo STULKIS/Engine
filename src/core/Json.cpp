@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace frontier::core {
+namespace derecho::core {
 namespace {
 
 class Parser {
@@ -401,4 +401,4 @@ bool JsonValue::LoadFromFile(const std::string& path, std::string& error) {
     return Parse(buffer.str(), error);
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

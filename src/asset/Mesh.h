@@ -1,4 +1,4 @@
-// Frontier Engine - mesh data and Wavefront OBJ import/export.
+// Derecho Engine - mesh data and Wavefront OBJ import/export.
 //
 // OBJ is the lowest-friction way to get real art into the engine: it is text,
 // it is exported by every DCC tool, and it needs no SDK. glTF is on the roadmap;
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 struct Vertex {
     vec3 position{0.0f};
@@ -41,4 +41,4 @@ bool SaveObj(const std::string& path, const MeshData& mesh, const std::string& n
 void AppendBox(MeshData& mesh, const vec3& centre, const vec3& halfExtents);
 void AppendCylinder(MeshData& mesh, const vec3& base, float radius, float height, int segments);
 
-} // namespace frontier::asset
+} // namespace derecho::asset

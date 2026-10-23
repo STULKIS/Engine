@@ -1,4 +1,4 @@
-// Frontier Engine - original procedural noise utilities (value/simplex style,
+// Derecho Engine - original procedural noise utilities (value/simplex style,
 // gradient noise, fractal Brownian motion, ridged and billowed variants).
 #pragma once
 
@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace frontier::core {
+namespace derecho::core {
 
 // Small, fast, deterministic PRNG. Not cryptographic; used for world generation.
 class Random {
@@ -89,4 +89,4 @@ private:
 // Cheap tileable cellular function used for grass clump masks and rock detail.
 float Cellular2D(float x, float y, uint32_t seed = 0u);
 
-} // namespace frontier::core
+} // namespace derecho::core

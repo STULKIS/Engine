@@ -4,13 +4,13 @@
 
 #include <algorithm>
 
-namespace frontier::render {
+namespace derecho::render {
 namespace {
 
 GLenum CheckFramebuffer(const char* name) {
     const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        FR_ERROR("Framebuffer '%s' incomplete (0x%04X)", name, static_cast<unsigned>(status));
+        DE_ERROR("Framebuffer '%s' incomplete (0x%04X)", name, static_cast<unsigned>(status));
     }
     return status;
 }
@@ -63,7 +63,7 @@ bool SceneTarget::Create(int width, int height, int samples, bool hdr) {
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
     m_samples = std::clamp(samples, 1, std::max(1, maxSamples));
     if (m_samples != samples && samples > 1) {
-        FR_WARN("Requested %dx MSAA but the driver caps at %d; using %d.", samples, maxSamples, m_samples);
+        DE_WARN("Requested %dx MSAA but the driver caps at %d; using %d.", samples, maxSamples, m_samples);
     }
     if (m_samples > 4) {
         // Higher counts are rarely worth the bandwidth for this scene.
@@ -115,7 +115,7 @@ bool SceneTarget::CreateAttachments() {
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    FR_INFO("Scene target %dx%d, %dx MSAA, %s.", m_width, m_height, m_samples, m_hdr ? "HDR" : "LDR");
+    DE_INFO("Scene target %dx%d, %dx MSAA, %s.", m_width, m_height, m_samples, m_hdr ? "HDR" : "LDR");
     return true;
 }
 
@@ -194,7 +194,7 @@ bool ShadowMap::Create(int size) {
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
     m_size = std::clamp(size, 256, std::max(256, std::min(8192, static_cast<int>(maxTextureSize))));
     if (m_size != size) {
-        FR_WARN("Shadow map size %d clamped to %d (driver limit %d).", size, m_size, maxTextureSize);
+        DE_WARN("Shadow map size %d clamped to %d (driver limit %d).", size, m_size, maxTextureSize);
     }
 
     for (int cascade = 0; cascade < kCascades; ++cascade) {
@@ -224,7 +224,7 @@ bool ShadowMap::Create(int size) {
         return false;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    FR_INFO("Shadow maps created: %d cascades at %dx%d.", kCascades, m_size, m_size);
+    DE_INFO("Shadow maps created: %d cascades at %dx%d.", kCascades, m_size, m_size);
     return true;
 }
 
@@ -308,7 +308,7 @@ bool BloomChain::Create(int width, int height) {
         return false;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    FR_INFO("Bloom chain %dx%d.", m_width, m_height);
+    DE_INFO("Bloom chain %dx%d.", m_width, m_height);
     return true;
 }
 
@@ -349,4 +349,4 @@ void BloomChain::Unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-} // namespace frontier::render
+} // namespace derecho::render

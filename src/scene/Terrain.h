@@ -1,4 +1,4 @@
-// Frontier Engine - procedural heightfield terrain.
+// Derecho Engine - procedural heightfield terrain.
 //
 // The CPU heightfield is generated independently from GPU resources so that
 // headless simulation, collision and foliage placement all work without a GL
@@ -13,10 +13,10 @@
 #include <memory>
 #include <vector>
 
-namespace frontier::core { class FractalNoise; }
-namespace frontier::render { class Shader; }
+namespace derecho::core { class FractalNoise; }
+namespace derecho::render { class Shader; }
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 struct TerrainSettings {
     uint32_t seed = 1337;
@@ -86,4 +86,4 @@ private:
     std::unique_ptr<core::FractalNoise> m_detail;
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

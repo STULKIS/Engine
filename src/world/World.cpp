@@ -7,7 +7,7 @@
 #include <cmath>
 #include <sstream>
 
-namespace frontier::world {
+namespace derecho::world {
 
 bool World::Generate(const core::WorldConfig& config) {
     m_settings = config;
@@ -48,14 +48,14 @@ bool World::Generate(const core::WorldConfig& config) {
                 << config.grassCount << " grass clumps";
     m_description = description.str();
 
-    FR_INFO("World generated: %s", m_description.c_str());
-    FR_INFO("Spawn point: (%.1f, %.1f, %.1f)", m_spawnPoint.x, m_spawnPoint.y, m_spawnPoint.z);
+    DE_INFO("World generated: %s", m_description.c_str());
+    DE_INFO("Spawn point: (%.1f, %.1f, %.1f)", m_spawnPoint.x, m_spawnPoint.y, m_spawnPoint.z);
     return true;
 }
 
 bool World::BuildRenderResources() {
     if (!m_generated) {
-        FR_ERROR("World::BuildRenderResources called before Generate().");
+        DE_ERROR("World::BuildRenderResources called before Generate().");
         return false;
     }
     if (m_gpuReady) {
@@ -70,7 +70,7 @@ bool World::BuildRenderResources() {
     }
     m_vegetation.BuildRenderResources();
     m_gpuReady = true;
-    FR_INFO("World render resources ready (%zu terrain triangles, %zu vegetation source triangles).",
+    DE_INFO("World render resources ready (%zu terrain triangles, %zu vegetation source triangles).",
             m_terrain.TriangleCount(), m_vegetation.TotalTriangles());
     return true;
 }
@@ -143,4 +143,4 @@ void World::RecomputeLighting() {
     }
 }
 
-} // namespace frontier::world
+} // namespace derecho::world

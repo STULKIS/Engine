@@ -1,24 +1,24 @@
-Frontier Engine - quick start
+Derecho Engine - quick start
 =============================
 
 1. Start the game:
      run.bat                 keeps the console window open (recommended)
-     frontier.exe            start directly
+     derecho.exe            start directly
 
 2. Check that this machine can run it:
-     frontier.exe --selftest
+     derecho.exe --selftest
    Renders 45 frames, inspects the pixels, writes screenshots\selftest.ppm
    and prints [PASS]/[FAIL] for each check. Exit code 0 = OK, 3 = failed.
 
 3. If nothing happens or it closes immediately:
      - run run.bat instead of double-clicking the exe and read the message
-     - open frontier.log in this folder (written on every run)
+     - open derecho.log in this folder (written on every run)
      - make sure assets\ and SDL2.dll are in this folder, next to the exe
-     - an antivirus may have quarantined frontier.exe; allow/restore it
+     - an antivirus may have quarantined derecho.exe; allow/restore it
      - the GPU driver must support OpenGL 4.5; avoid remote desktop sessions
 
 4. Low-end machines / older GPUs:
-     frontier.exe --safe-mode    no MSAA, no HDR, no bloom, 1024 shadow map,
+     derecho.exe --safe-mode    no MSAA, no HDR, no bloom, 1024 shadow map,
                                  lighter vegetation and 0.85 render scale
 
 5. Controls: WASD move, mouse look, Space jump, Shift sprint, Ctrl walk,

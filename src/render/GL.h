@@ -1,4 +1,4 @@
-// Frontier Engine - OpenGL 4.5 Core function loader.
+// Derecho Engine - OpenGL 4.5 Core function loader.
 //
 // The engine does not link against libGL and does not depend on a platform GL
 // development package. The Khronos glcorearb.h header is vendored for types and
@@ -8,10 +8,10 @@
 
 #include <gl/glcorearb.h>
 
-namespace frontier::render::gl {
+namespace derecho::render::gl {
 
 // X(return-typedef, function-name)
-#define FRONTIER_GL_FUNCTIONS(X)                                     \
+#define DERECHO_GL_FUNCTIONS(X)                                     \
     X(PFNGLGETSTRINGPROC, glGetString)                               \
     X(PFNGLGETSTRINGIPROC, glGetStringi)                             \
     X(PFNGLGETINTEGERVPROC, glGetIntegerv)                           \
@@ -117,9 +117,9 @@ namespace frontier::render::gl {
     X(PFNGLBLENDCOLORPROC, glBlendColor)
 
 // Declares one function pointer per entry in the list above.
-#define FRONTIER_GL_DECLARE(type, name) extern type name;
-FRONTIER_GL_FUNCTIONS(FRONTIER_GL_DECLARE)
-#undef FRONTIER_GL_DECLARE
+#define DERECHO_GL_DECLARE(type, name) extern type name;
+DERECHO_GL_FUNCTIONS(DERECHO_GL_DECLARE)
+#undef DERECHO_GL_DECLARE
 
 // Resolves every entry point. Returns false if any symbol is missing; the
 // offending names are logged. Must be called with a current GL context.
@@ -132,10 +132,10 @@ const char* ErrorString(GLenum error);
 // Returns true when the queue was clean.
 bool CheckErrors(const char* context);
 
-} // namespace frontier::render::gl
+} // namespace derecho::render::gl
 
-namespace frontier::render {
+namespace derecho::render {
 // The renderer (and its helper classes) call GL entry points unqualified, the
 // same way they would with a traditional GL loader header.
 using namespace gl;
-} // namespace frontier::render
+} // namespace derecho::render

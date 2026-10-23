@@ -1,4 +1,4 @@
-// Frontier Engine - GPU mesh with optional per-instance transform data.
+// Derecho Engine - GPU mesh with optional per-instance transform data.
 #pragma once
 
 #include "math/Math.h"
@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace frontier::render {
+namespace derecho::render {
 
 struct Vertex {
     vec3 position{0.0f};
@@ -72,4 +72,4 @@ private:
     scene::AABB m_bounds{vec3(0.0f), vec3(0.0f)};
 };
 
-} // namespace frontier::render
+} // namespace derecho::render

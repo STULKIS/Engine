@@ -1,4 +1,4 @@
-// Frontier Engine - offscreen targets (HDR scene buffer, shadow map, bloom).
+// Derecho Engine - offscreen targets (HDR scene buffer, shadow map, bloom).
 #pragma once
 
 #include "math/Math.h"
@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace frontier::render {
+namespace derecho::render {
 
 // Multisampled colour + depth target that resolves into a sampleable texture.
 class SceneTarget {
@@ -119,4 +119,4 @@ private:
     int m_height = 0;
 };
 
-} // namespace frontier::render
+} // namespace derecho::render

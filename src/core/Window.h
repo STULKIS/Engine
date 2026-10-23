@@ -1,11 +1,11 @@
-// Frontier Engine - SDL2 window, OpenGL 4.5 context and swap control.
+// Derecho Engine - SDL2 window, OpenGL 4.5 context and swap control.
 #pragma once
 
 #include <SDL.h>
 
 #include <string>
 
-namespace frontier::core {
+namespace derecho::core {
 
 class Window {
 public:
@@ -42,6 +42,9 @@ public:
     bool IsFullscreen() const { return m_fullscreen; }
     void SetVSync(bool enabled);
 
+    // Sets the taskbar/titlebar icon from tightly packed RGBA8 pixels.
+    void SetIcon(const uint8_t* rgba, int width, int height);
+
     std::string Title() const;
 
 private:
@@ -55,4 +58,4 @@ private:
     bool m_vsync = true;
 };
 
-} // namespace frontier::core
+} // namespace derecho::core

@@ -3,7 +3,7 @@
 
 Rasterises assets/models/*.obj with a z-buffer, cel-ish shading and the same
 light direction as the engine, then writes a PNG. Useful on machines (or CI
-runners) where Frontier cannot open a GL context, and as a quick look at the
+runners) where Derecho cannot open a GL context, and as a quick look at the
 generated art.
 
 Usage: python3 scripts/preview_models.py [--out docs/placeholder-assets.png]

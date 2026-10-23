@@ -1,4 +1,4 @@
-// Frontier Engine - assembled procedural world (terrain, water, vegetation, sky).
+// Derecho Engine - assembled procedural world (terrain, water, vegetation, sky).
 #pragma once
 
 #include "core/Config.h"
@@ -10,9 +10,9 @@
 
 #include <string>
 
-namespace frontier::scene { class Camera; }
+namespace derecho::scene { class Camera; }
 
-namespace frontier::world {
+namespace derecho::world {
 
 // Combined directional light + atmosphere state produced by the time of day.
 struct LightingState {
@@ -81,4 +81,4 @@ private:
     std::string m_description;
 };
 
-} // namespace frontier::world
+} // namespace derecho::world

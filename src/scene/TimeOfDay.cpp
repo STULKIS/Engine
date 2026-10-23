@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 void TimeOfDay::Configure(float startHours, float dayLengthMinutes, bool paused) {
     SetHours(startHours);
@@ -140,4 +140,4 @@ std::string TimeOfDay::ClockString() const {
     return buffer;
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

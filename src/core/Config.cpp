@@ -12,7 +12,7 @@
 #include <sstream>
 #include <string_view>
 
-namespace frontier::core {
+namespace derecho::core {
 namespace {
 
 std::string Lower(std::string s) {
@@ -106,10 +106,10 @@ void ApplyQualityPreset(AppConfig& c, const std::string& preset) {
         c.world.grassCount = 100000;
         c.world.treeCount = 1400;
     } else {
-        FR_WARN("Unknown quality preset '%s' (use low, medium, high or ultra).", preset.c_str());
+        DE_WARN("Unknown quality preset '%s' (use low, medium, high or ultra).", preset.c_str());
         return;
     }
-    FR_INFO("Quality preset '%s': %dx MSAA, %.2f render scale, %d shadow map, %.0f m view distance, "
+    DE_INFO("Quality preset '%s': %dx MSAA, %.2f render scale, %d shadow map, %.0f m view distance, "
             "%d trees, %d grass.",
             preset.c_str(), c.render.msaaSamples, c.render.renderScale, c.render.shadowMapSize,
             c.render.viewDistance, c.world.treeCount, c.world.grassCount);
@@ -238,7 +238,7 @@ bool LoadConfigFile(const std::string& path, AppConfig& config) {
         }
         const auto eq = trimmed.find('=');
         if (eq == std::string::npos) {
-            FR_WARN("%s:%d: expected 'key = value', ignoring line", path.c_str(), lineNumber);
+            DE_WARN("%s:%d: expected 'key = value', ignoring line", path.c_str(), lineNumber);
             continue;
         }
         const std::string key = Trim(trimmed.substr(0, eq));
@@ -248,10 +248,10 @@ bool LoadConfigFile(const std::string& path, AppConfig& config) {
         if (ApplySetting(config, fullKey, value, sink)) {
             ++applied;
         } else {
-            FR_WARN("%s:%d: unknown key '%s'", path.c_str(), lineNumber, fullKey.c_str());
+            DE_WARN("%s:%d: unknown key '%s'", path.c_str(), lineNumber, fullKey.c_str());
         }
     }
-    FR_INFO("Loaded %d setting(s) from %s", applied, path.c_str());
+    DE_INFO("Loaded %d setting(s) from %s", applied, path.c_str());
     return true;
 }
 
@@ -260,7 +260,7 @@ bool SaveConfigFile(const std::string& path, const AppConfig& c) {
     if (!file) {
         return false;
     }
-    file << "# Frontier Engine configuration (generated)\n"
+    file << "# Derecho Engine configuration (generated)\n"
          << "[window]\n"
          << "width = " << c.window.width << "\nheight = " << c.window.height
          << "\nfullscreen = " << (c.window.fullscreen ? "true" : "false")
@@ -329,7 +329,7 @@ bool SaveConfigFile(const std::string& path, const AppConfig& c) {
 
 void PrintUsage(const char* exe) {
     std::printf(
-        "Frontier Engine - procedural first-person outdoor sandbox\n"
+        "Derecho Engine - procedural first-person outdoor sandbox\n"
         "\n"
         "Usage: %s [options]\n"
         "\n"
@@ -355,7 +355,7 @@ void PrintUsage(const char* exe) {
         "  --msaa=<1|2|4|8>       MSAA sample count for the HDR target (default 4)\n"
         "  --assets=<path>        Asset directory containing shaders/ (default assets)\n"
         "  --log-level=<level>    trace|debug|info|warn|error (default info)\n"
-        "  --log-file=<path>      Tee log output to a file (default frontier.log)\n"
+        "  --log-file=<path>      Tee log output to a file (default derecho.log)\n"
         "  --render-scale=<f>     Internal 3D resolution scale, 0.25..2 (default 1)\n"
         "  --style=<name>         Look of the frame: realistic | anime (NPR)\n"
         "  --cel-steps=<n>        Cel shading bands for --style=anime (default 3)\n"
@@ -398,7 +398,7 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg.rfind("--", 0) != 0) {
-            FR_WARN("Ignoring positional argument '%s'", arg.c_str());
+            DE_WARN("Ignoring positional argument '%s'", arg.c_str());
             continue;
         }
         arg = arg.substr(2);
@@ -440,7 +440,7 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
             } else if (mode == "third" || mode == "thirdperson" || mode == "tps") {
                 ApplySetting(config, "game.thirdperson", "true", value);
             } else {
-                FR_WARN("Unknown camera mode '%s' (use first or third)", value.c_str());
+                DE_WARN("Unknown camera mode '%s' (use first or third)", value.c_str());
             }
             continue;
         }
@@ -457,7 +457,7 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "log-level") { ApplySetting(config, "app.loglevel", inferredValue(), value); continue; }
         if (key == "log-file") { ApplySetting(config, "app.logfile", inferredValue(), value); continue; }
         if (key == "render-scale") { ApplySetting(config, "render.renderscale", inferredValue(), value); continue; }
-        if (key == "style") { if (!ApplySetting(config, "render.style", inferredValue(), value)) { FR_WARN("Unknown style '%s' (use realistic or anime)", value.c_str()); } continue; }
+        if (key == "style") { if (!ApplySetting(config, "render.style", inferredValue(), value)) { DE_WARN("Unknown style '%s' (use realistic or anime)", value.c_str()); } continue; }
         if (key == "god-rays" || key == "godrays") { ApplySetting(config, "render.godrays", inferredValue(), value); continue; }
         if (key == "shadow-radius") { ApplySetting(config, "render.shadownearradius", inferredValue(), value); continue; }
         if (key == "contrast") { ApplySetting(config, "render.contrast", inferredValue(), value); continue; }
@@ -479,7 +479,7 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
             ApplySetting(config, "render.renderscale", "0.85", value);
             ApplySetting(config, "world.grasscount", "25000", value);
             ApplySetting(config, "world.treecount", "600", value);
-            FR_INFO("Safe mode enabled: no MSAA/HDR/bloom, 1024 shadow map, lighter world.");
+            DE_INFO("Safe mode enabled: no MSAA/HDR/bloom, 1024 shadow map, lighter world.");
             continue;
         }
         if (key == "no-fog") { ApplySetting(config, "render.fogdensity", "0", value); continue; }
@@ -505,7 +505,7 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "frames") { ApplySetting(config, "app.headlessframes", inferredValue(), value); continue; }
         if (key == "demo-ui") { ApplySetting(config, "app.demoui", "true", value); continue; }
 
-        FR_WARN("Unknown option '--%s' (see --help)", key.c_str());
+        DE_WARN("Unknown option '--%s' (see --help)", key.c_str());
     }
 
     // Sanity clamping keeps the engine robust against nonsense input.
@@ -547,4 +547,4 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
     return true;
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

@@ -1,10 +1,10 @@
-// Frontier Engine - lightweight logging.
+// Derecho Engine - lightweight logging.
 #pragma once
 
 #include <cstdarg>
 #include <string>
 
-namespace frontier::core {
+namespace derecho::core {
 
 enum class LogLevel : int { Trace = 0, Debug = 1, Info = 2, Warn = 3, Error = 4, Off = 5 };
 
@@ -37,11 +37,11 @@ private:
     static bool s_initialized;
 };
 
-} // namespace frontier::core
+} // namespace derecho::core
 
-#define FR_LOG(level, ...) ::frontier::core::Log::Write((level), __FILE__, __LINE__, __VA_ARGS__)
-#define FR_TRACE(...) FR_LOG(::frontier::core::LogLevel::Trace, __VA_ARGS__)
-#define FR_DEBUG(...) FR_LOG(::frontier::core::LogLevel::Debug, __VA_ARGS__)
-#define FR_INFO(...) FR_LOG(::frontier::core::LogLevel::Info, __VA_ARGS__)
-#define FR_WARN(...) FR_LOG(::frontier::core::LogLevel::Warn, __VA_ARGS__)
-#define FR_ERROR(...) FR_LOG(::frontier::core::LogLevel::Error, __VA_ARGS__)
+#define DE_LOG(level, ...) ::derecho::core::Log::Write((level), __FILE__, __LINE__, __VA_ARGS__)
+#define DE_TRACE(...) DE_LOG(::derecho::core::LogLevel::Trace, __VA_ARGS__)
+#define DE_DEBUG(...) DE_LOG(::derecho::core::LogLevel::Debug, __VA_ARGS__)
+#define DE_INFO(...) DE_LOG(::derecho::core::LogLevel::Info, __VA_ARGS__)
+#define DE_WARN(...) DE_LOG(::derecho::core::LogLevel::Warn, __VA_ARGS__)
+#define DE_ERROR(...) DE_LOG(::derecho::core::LogLevel::Error, __VA_ARGS__)

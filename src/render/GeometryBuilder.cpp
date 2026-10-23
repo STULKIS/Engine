@@ -6,7 +6,7 @@
 #include <array>
 #include <cmath>
 
-namespace frontier::render::geometry {
+namespace derecho::render::geometry {
 namespace {
 
 inline void AddTriangle(MeshData& mesh, uint32_t a, uint32_t b, uint32_t c) {
@@ -510,4 +510,4 @@ MeshData MakeFullscreenTriangle() {
     return mesh;
 }
 
-} // namespace frontier::render::geometry
+} // namespace derecho::render::geometry

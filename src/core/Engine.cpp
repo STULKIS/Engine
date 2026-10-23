@@ -26,9 +26,9 @@
 #include <string>
 #include <vector>
 
-namespace frontier::core {
+namespace derecho::core {
 
-using namespace frontier::render::gl;
+using namespace derecho::render::gl;
 
 namespace {
 
@@ -93,37 +93,37 @@ bool ValidateGLContext() {
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
     glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maxColorAttachments);
 
-    FR_INFO("GL version:   %s", versionString ? versionString : "unknown");
-    FR_INFO("GLSL version: %s", shadingLanguage ? shadingLanguage : "unknown");
-    FR_INFO("GL vendor:    %s", vendorString ? vendorString : "unknown");
-    FR_INFO("GL renderer:  %s", rendererString ? rendererString : "unknown");
-    FR_INFO("GL profile:   %s, max samples %d, max texture %d, colour attachments %d",
+    DE_INFO("GL version:   %s", versionString ? versionString : "unknown");
+    DE_INFO("GLSL version: %s", shadingLanguage ? shadingLanguage : "unknown");
+    DE_INFO("GL vendor:    %s", vendorString ? vendorString : "unknown");
+    DE_INFO("GL renderer:  %s", rendererString ? rendererString : "unknown");
+    DE_INFO("GL profile:   %s, max samples %d, max texture %d, colour attachments %d",
             coreProfile ? "core" : "compatibility", maxSamples, maxTextureSize, maxColorAttachments);
 
     const std::string rendererName = rendererString ? rendererString : "";
     if (rendererName.find("llvmpipe") != std::string::npos || rendererName.find("softpipe") != std::string::npos ||
         rendererName.find("SwiftShader") != std::string::npos) {
-        FR_WARN("Software rasterizer detected; expect low frame rates. Lower --render-scale and view distance.");
+        DE_WARN("Software rasterizer detected; expect low frame rates. Lower --render-scale and view distance.");
     }
 
     if (!versionParsed) {
-        FR_WARN("Could not parse the OpenGL version string; continuing anyway.");
+        DE_WARN("Could not parse the OpenGL version string; continuing anyway.");
         return true;
     }
     if (major < 4 || (major == 4 && minor < 5)) {
-        FR_ERROR("Frontier Engine needs OpenGL 4.5 core; the driver only provides %d.%d.", major, minor);
-        FR_ERROR("Update the GPU driver (NVIDIA/AMD/Intel) and try again.");
-        FR_ERROR("On Mesa/llvmpipe you can force a higher reported version with");
-        FR_ERROR("  MESA_GL_VERSION_OVERRIDE=4.5 MESA_GLSL_VERSION_OVERRIDE=450 ./frontier");
-        FR_ERROR("(that only works if the driver actually implements the features).");
+        DE_ERROR("Derecho Engine needs OpenGL 4.5 core; the driver only provides %d.%d.", major, minor);
+        DE_ERROR("Update the GPU driver (NVIDIA/AMD/Intel) and try again.");
+        DE_ERROR("On Mesa/llvmpipe you can force a higher reported version with");
+        DE_ERROR("  MESA_GL_VERSION_OVERRIDE=4.5 MESA_GLSL_VERSION_OVERRIDE=450 ./derecho");
+        DE_ERROR("(that only works if the driver actually implements the features).");
         return false;
     }
     if (glslMajor > 0 && (glslMajor < 4 || (glslMajor == 4 && glslMinor < 50))) {
-        FR_ERROR("Frontier Engine shaders need GLSL 4.50, but the driver reports %d.%02d.", glslMajor, glslMinor);
+        DE_ERROR("Derecho Engine shaders need GLSL 4.50, but the driver reports %d.%02d.", glslMajor, glslMinor);
         return false;
     }
     if (!coreProfile) {
-        FR_WARN("A compatibility profile was created instead of a core profile; this usually still works.");
+        DE_WARN("A compatibility profile was created instead of a core profile; this usually still works.");
     }
     return true;
 }
@@ -171,7 +171,7 @@ int Engine::Run(AppConfig& config) {
     if (m_config.selftest) {
         const int exitCode = RunSelfTest();
         Shutdown();
-        FR_INFO("Frontier Engine shut down cleanly.");
+        DE_INFO("Derecho Engine shut down cleanly.");
         return exitCode;
     }
 
@@ -214,7 +214,7 @@ int Engine::Run(AppConfig& config) {
 
         fpsWindowTimer += deltaSeconds;
         if (fpsWindowTimer >= 1.0) {
-            FR_INFO("Frame stats: %.1f FPS (avg), %.2f ms frame, %d draw calls, %.2f M triangles, "
+            DE_INFO("Frame stats: %.1f FPS (avg), %.2f ms frame, %d draw calls, %.2f M triangles, "
                     "%d instances visible, %d culled, time %.2f h (%s).",
                     m_frameStats.smoothedFps, m_frameStats.smoothedDelta * 1000.0f,
                     m_renderer->Stats().drawCalls,
@@ -227,26 +227,37 @@ int Engine::Run(AppConfig& config) {
     }
 
     Shutdown();
-    FR_INFO("Frontier Engine shut down cleanly.");
+    DE_INFO("Derecho Engine shut down cleanly.");
     return 0;
 }
 
 bool Engine::Initialize(AppConfig& config) {
-    FR_INFO("Starting Frontier Engine %s", "0.1.0");
-    FR_INFO("World config: seed %d, %.0f m, %d quads, %d trees, %d grass.",
+    DE_INFO("Starting Derecho Engine %s", "0.1.0");
+    DE_INFO("World config: seed %d, %.0f m, %d quads, %d trees, %d grass.",
             config.world.seed, config.world.terrainSize, config.world.terrainResolution,
             config.world.treeCount, config.world.grassCount);
 
     config.assetsDir = ResolveAssetDirectory(config.assetsDir);
-    FR_INFO("Asset directory: %s", config.assetsDir.c_str());
+    DE_INFO("Asset directory: %s", config.assetsDir.c_str());
 
     m_window = std::make_unique<Window>();
     if (!m_window->Create(config.window.title, config.window.width, config.window.height,
                           config.window.fullscreen, config.window.resizable, config.window.vsync)) {
-        FR_ERROR("Window/OpenGL 4.5 initialization failed.");
-        FR_ERROR("This build needs an OpenGL 4.5 capable driver and a display server.");
-        FR_ERROR("Try running with --headless to validate world generation without a GPU.");
+        DE_ERROR("Window/OpenGL 4.5 initialization failed.");
+        DE_ERROR("This build needs an OpenGL 4.5 capable driver and a display server.");
+        DE_ERROR("Try running with --headless to validate world generation without a GPU.");
         return false;
+    }
+
+    {
+        std::string iconError;
+        asset::Image icon;
+        if (asset::LoadImage(config.assetsDir + "/branding/derecho-logo.png", icon, iconError)) {
+            m_window->SetIcon(icon.pixels.data(), icon.width, icon.height);
+            DE_INFO("Window icon: %s (%dx%d).", "branding/derecho-logo.png", icon.width, icon.height);
+        } else {
+            DE_WARN("Window icon not loaded: %s", iconError.c_str());
+        }
     }
 
     m_input = std::make_unique<Input>();
@@ -254,24 +265,24 @@ bool Engine::Initialize(AppConfig& config) {
     m_input->SetMouseSensitivity(config.game.mouseSensitivity);
 
     if (!render::gl::LoadFunctions(reinterpret_cast<void* (*)(const char*)>(SDL_GL_GetProcAddress))) {
-        FR_ERROR("Failed to resolve OpenGL entry points.");
+        DE_ERROR("Failed to resolve OpenGL entry points.");
         return false;
     }
     if (!ValidateGLContext()) {
-        FR_ERROR("The OpenGL context is not usable by this engine.");
+        DE_ERROR("The OpenGL context is not usable by this engine.");
         return false;
     }
 
     m_renderer = std::make_unique<render::Renderer>();
     if (!m_renderer->Initialize(config.render, config.assetsDir)) {
-        FR_ERROR("Renderer initialization failed.");
+        DE_ERROR("Renderer initialization failed.");
         return false;
     }
     m_renderer->Resize(m_window->Width(), m_window->Height());
 
     m_world = std::make_unique<world::World>();
     if (!m_world->Generate(config.world) || !m_world->BuildRenderResources()) {
-        FR_ERROR("World generation failed.");
+        DE_ERROR("World generation failed.");
         return false;
     }
 
@@ -300,7 +311,7 @@ bool Engine::Initialize(AppConfig& config) {
 
     m_debugUI = std::make_unique<ui::DebugUI>();
     if (!m_debugUI->Initialize(*m_window, config.demoUI)) {
-        FR_ERROR("Debug UI initialization failed.");
+        DE_ERROR("Debug UI initialization failed.");
         return false;
     }
 
@@ -309,11 +320,11 @@ bool Engine::Initialize(AppConfig& config) {
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_CULL_FACE);
 
-    FR_INFO("Controls: WASD move | mouse look | Space jump | Shift sprint | Ctrl walk");
-    FR_INFO("          F1 panel | F2 wireframe | F3 shadows | F4 foliage | F5 water");
-    FR_INFO("          F6 pause time | F7 render style | F11 fullscreen | F12 screenshot");
-    FR_INFO("          R respawn | G new world | Esc release mouse");
-    FR_INFO("Frontier Engine initialized successfully.");
+    DE_INFO("Controls: WASD move | mouse look | Space jump | Shift sprint | Ctrl walk");
+    DE_INFO("          F1 panel | F2 wireframe | F3 shadows | F4 foliage | F5 water");
+    DE_INFO("          F6 pause time | F7 render style | F11 fullscreen | F12 screenshot");
+    DE_INFO("          R respawn | G new world | Esc release mouse");
+    DE_INFO("Derecho Engine initialized successfully.");
     return true;
 }
 
@@ -346,7 +357,7 @@ void Engine::Shutdown() {
 void Engine::HandleEvent(const SDL_Event& event) {
     switch (event.type) {
         case SDL_QUIT:
-            FR_INFO("Quit requested by the window manager.");
+            DE_INFO("Quit requested by the window manager.");
             m_running = false;
             return;
         case SDL_WINDOWEVENT:
@@ -376,7 +387,7 @@ void Engine::HandleEvent(const SDL_Event& event) {
                     if (m_player) {
                         m_player->SetCaptured(false);
                     }
-                    FR_INFO("Mouse released. Click the viewport to capture it again.");
+                    DE_INFO("Mouse released. Click the viewport to capture it again.");
                 } else {
                     m_running = false;
                 }
@@ -425,12 +436,12 @@ void Engine::Update(float deltaSeconds) {
             if (m_player) {
                 m_player->SetThirdPerson(m_config.game.thirdPerson);
             }
-            FR_INFO("Camera: %s", m_config.game.thirdPerson ? "third person" : "first person");
+            DE_INFO("Camera: %s", m_config.game.thirdPerson ? "third person" : "first person");
         }
         if (m_input->WasActionPressed(Action::ToggleStyle)) {
             const bool anime = m_config.render.style == RenderStyle::Anime;
             m_config.render.style = anime ? RenderStyle::Realistic : RenderStyle::Anime;
-            FR_INFO("Render style: %s", anime ? "realistic" : "anime (cel shading + outlines)");
+            DE_INFO("Render style: %s", anime ? "realistic" : "anime (cel shading + outlines)");
         }
         if (m_input->WasActionPressed(Action::ToggleTimePause)) {
             m_world->Time().SetPaused(!m_world->Time().Paused());
@@ -537,9 +548,9 @@ void Engine::ApplyActions(ui::DebugActions& actions) {
         LoadScene(m_entities.Path());
     }
     if (actions.saveConfig) {
-        const std::string path = "frontier-saved-config.ini";
+        const std::string path = "derecho-saved-config.ini";
         if (SaveConfigFile(path, m_config)) {
-            FR_INFO("Configuration written to %s", path.c_str());
+            DE_INFO("Configuration written to %s", path.c_str());
         }
     }
     if (actions.requestQuit) {
@@ -556,7 +567,7 @@ void Engine::RespawnPlayer() {
     if (m_input) {
         m_input->SetRelativeMouseMode(true);
     }
-    FR_INFO("Player respawned at (%.1f, %.1f, %.1f).", m_world->SpawnPoint().x,
+    DE_INFO("Player respawned at (%.1f, %.1f, %.1f).", m_world->SpawnPoint().x,
             m_world->SpawnPoint().y, m_world->SpawnPoint().z);
 }
 
@@ -658,7 +669,7 @@ void Engine::BuildDefaultScene() {
         }
     }
 
-    FR_INFO("Scene ready: %zu entities around the spawn point.", m_entities.AliveCount());
+    DE_INFO("Scene ready: %zu entities around the spawn point.", m_entities.AliveCount());
 }
 
 void Engine::SaveScene(const std::string& path) {
@@ -667,7 +678,7 @@ void Engine::SaveScene(const std::string& path) {
     if (m_entities.Save(target, error)) {
         m_entities.SetPath(target);
     } else {
-        FR_ERROR("Could not save the scene: %s", error.c_str());
+        DE_ERROR("Could not save the scene: %s", error.c_str());
     }
 }
 
@@ -676,7 +687,7 @@ void Engine::LoadScene(const std::string& path) {
     std::string error;
     m_scripts.Clear(m_entities);
     if (!m_entities.Load(source, error)) {
-        FR_ERROR("Could not load the scene: %s", error.c_str());
+        DE_ERROR("Could not load the scene: %s", error.c_str());
         return;
     }
     m_entities.SetPath(source);
@@ -710,9 +721,9 @@ void Engine::TakeScreenshot() {
     namespace fs = std::filesystem;
     std::error_code ec;
     fs::create_directories("screenshots", ec);
-    const std::string path = "screenshots/frontier-" + TimestampString() + ".ppm";
+    const std::string path = "screenshots/derecho-" + TimestampString() + ".ppm";
     if (m_renderer->SaveScreenshot(path)) {
-        FR_INFO("Screenshot written: %s (PPM, view with GIMP/ffmpeg/ImageMagick)", path.c_str());
+        DE_INFO("Screenshot written: %s (PPM, view with GIMP/ffmpeg/ImageMagick)", path.c_str());
     }
 }
 
@@ -783,26 +794,26 @@ FrameReport AnalyseFrame(const unsigned char* pixels, size_t pixelBytes, int wid
 } // namespace
 
 int Engine::RunGLInfo(AppConfig& config) {
-    FR_INFO("OpenGL environment report");
+    DE_INFO("OpenGL environment report");
 
     SDL_version compiled{};
     SDL_version linkedVersion{};
     SDL_VERSION(&compiled);
     SDL_GetVersion(&linkedVersion);
-    FR_INFO("SDL: compiled %d.%d.%d, linked %d.%d.%d", compiled.major, compiled.minor, compiled.patch,
+    DE_INFO("SDL: compiled %d.%d.%d, linked %d.%d.%d", compiled.major, compiled.minor, compiled.patch,
             linkedVersion.major, linkedVersion.minor, linkedVersion.patch);
 
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
-        FR_ERROR("SDL video subsystem could not start: %s", SDL_GetError());
-        FR_ERROR("There is no usable display (no GPU driver, no desktop session, or a");
-        FR_ERROR("container without a display server). Start it from a local desktop.");
+        DE_ERROR("SDL video subsystem could not start: %s", SDL_GetError());
+        DE_ERROR("There is no usable display (no GPU driver, no desktop session, or a");
+        DE_ERROR("container without a display server). Start it from a local desktop.");
         return 1;
     }
 
     const char* driver = SDL_GetCurrentVideoDriver();
-    FR_INFO("SDL video driver: %s", driver ? driver : "unknown");
+    DE_INFO("SDL video driver: %s", driver ? driver : "unknown");
     const int displays = SDL_GetNumVideoDisplays();
-    FR_INFO("Displays: %d", displays);
+    DE_INFO("Displays: %d", displays);
     for (int i = 0; i < displays; ++i) {
         SDL_Rect bounds{};
         SDL_GetDisplayBounds(i, &bounds);
@@ -811,7 +822,7 @@ int Engine::RunGLInfo(AppConfig& config) {
         SDL_DisplayMode mode{};
         SDL_GetCurrentDisplayMode(i, &mode);
         const char* name = SDL_GetDisplayName(i);
-        FR_INFO("  [%d] %s: %dx%d at (%d,%d), usable %dx%d, mode %dx%d @ %d Hz, format %s",
+        DE_INFO("  [%d] %s: %dx%d at (%d,%d), usable %dx%d, mode %dx%d @ %d Hz, format %s",
                 i, name ? name : "display", bounds.w, bounds.h, bounds.x, bounds.y,
                 usable.w, usable.h, mode.w, mode.h, mode.refresh_rate,
                 SDL_GetPixelFormatName(mode.format));
@@ -824,14 +835,14 @@ int Engine::RunGLInfo(AppConfig& config) {
     const bool created = m_window->Create(infoConfig.window.title, infoConfig.window.width,
                                           infoConfig.window.height, false, true, false);
     if (!created) {
-        FR_ERROR("Window/context creation failed; the messages above say why.");
-        FR_ERROR("Run this report from a local desktop session with an up-to-date GPU driver.");
+        DE_ERROR("Window/context creation failed; the messages above say why.");
+        DE_ERROR("Run this report from a local desktop session with an up-to-date GPU driver.");
         return 1;
     }
-    FR_INFO("Window: %dx%d", m_window->Width(), m_window->Height());
+    DE_INFO("Window: %dx%d", m_window->Width(), m_window->Height());
 
     if (!render::gl::LoadFunctions(reinterpret_cast<void* (*)(const char*)>(SDL_GL_GetProcAddress))) {
-        FR_ERROR("OpenGL entry points could not be resolved; the driver is not usable.");
+        DE_ERROR("OpenGL entry points could not be resolved; the driver is not usable.");
         return 1;
     }
 
@@ -839,30 +850,30 @@ int Engine::RunGLInfo(AppConfig& config) {
         const GLubyte* value = render::gl::glGetString(name);
         return value ? reinterpret_cast<const char*>(value) : "(unavailable)";
     };
-    FR_INFO("GL_VERSION:  %s", glString(GL_VERSION));
-    FR_INFO("GL_VENDOR:   %s", glString(GL_VENDOR));
-    FR_INFO("GL_RENDERER: %s", glString(GL_RENDERER));
-    FR_INFO("GLSL:        %s", glString(GL_SHADING_LANGUAGE_VERSION));
+    DE_INFO("GL_VERSION:  %s", glString(GL_VERSION));
+    DE_INFO("GL_VENDOR:   %s", glString(GL_VENDOR));
+    DE_INFO("GL_RENDERER: %s", glString(GL_RENDERER));
+    DE_INFO("GLSL:        %s", glString(GL_SHADING_LANGUAGE_VERSION));
 
     GLint value = 0;
     glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &value);
-    FR_INFO("Profile:     %s",
+    DE_INFO("Profile:     %s",
             (value & GL_CONTEXT_CORE_PROFILE_BIT) ? "core" : "compatibility");
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &value);
-    FR_INFO("Max texture size: %d", value);
+    DE_INFO("Max texture size: %d", value);
     glGetIntegerv(GL_MAX_SAMPLES, &value);
-    FR_INFO("Max MSAA samples: %d", value);
+    DE_INFO("Max MSAA samples: %d", value);
     glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &value);
-    FR_INFO("Max colour attachments: %d", value);
+    DE_INFO("Max colour attachments: %d", value);
 
     GLint extensionCount = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &extensionCount);
-    FR_INFO("Extensions: %d", extensionCount);
+    DE_INFO("Extensions: %d", extensionCount);
     GLint maxVertexAttribs = 0;
     glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVertexAttribs);
-    FR_INFO("Vertex attributes: %d", maxVertexAttribs);
+    DE_INFO("Vertex attributes: %d", maxVertexAttribs);
 
-    FR_INFO("Report complete. If GL_VERSION is below 4.5 the engine cannot run; "
+    DE_INFO("Report complete. If GL_VERSION is below 4.5 the engine cannot run; "
             "update the GPU driver.");
     return 0;
 }
@@ -871,7 +882,7 @@ int Engine::RunSelfTest() {
     const int frames = std::max(5, m_config.selftestFrames);
     const int width = m_window->Width();
     const int height = m_window->Height();
-    FR_INFO("Self-test: rendering %d frames at %dx%d and inspecting the result.", frames, width, height);
+    DE_INFO("Self-test: rendering %d frames at %dx%d and inspecting the result.", frames, width, height);
 
     constexpr float kStep = 1.0f / 60.0f;
     float elapsed = 0.0f;
@@ -913,11 +924,11 @@ int Engine::RunSelfTest() {
     const FrameReport report = AnalyseFrame(pixels.get(), pixelBytes, width, height);
     const render::RenderStats& stats = m_renderer->Stats();
 
-    FR_INFO("Self-test image: mean luminance %.3f, contrast %.3f, black pixels %.1f%%, "
+    DE_INFO("Self-test image: mean luminance %.3f, contrast %.3f, black pixels %.1f%%, "
             "sky %.3f vs ground %.3f.",
             report.meanLuma, report.stdDev, report.blackFraction * 100.0,
             report.topMean, report.bottomMean);
-    FR_INFO("Self-test totals: %d draw calls, %zu triangles, %d visible instances, %d culled.",
+    DE_INFO("Self-test totals: %d draw calls, %zu triangles, %d visible instances, %d culled.",
             stats.drawCalls, stats.triangles, stats.visibleInstances, stats.culledInstances);
 
     const bool sampled = report.samples > 0;
@@ -929,7 +940,7 @@ int Engine::RunSelfTest() {
 
     bool pass = true;
     auto check = [&pass](bool ok, const char* label) {
-        FR_INFO("  [%s] %s", ok ? "PASS" : "FAIL", label);
+        DE_INFO("  [%s] %s", ok ? "PASS" : "FAIL", label);
         pass = pass && ok;
     };
     check(sampled, "frame buffer readable");
@@ -941,28 +952,28 @@ int Engine::RunSelfTest() {
     check(drewGeometry, "geometry was drawn");
 
     if (pass) {
-        FR_INFO("Self-test PASSED: the renderer produced a varied, non-black frame.");
-        FR_INFO("A copy of the frame was written to screenshots/selftest.ppm.");
+        DE_INFO("Self-test PASSED: the renderer produced a varied, non-black frame.");
+        DE_INFO("A copy of the frame was written to screenshots/selftest.ppm.");
         return 0;
     }
 
-    FR_ERROR("Self-test FAILED.");
-    FR_ERROR("Try --safe-mode (no MSAA/HDR/bloom), then --no-bloom, --msaa=1 or --no-hdr "
+    DE_ERROR("Self-test FAILED.");
+    DE_ERROR("Try --safe-mode (no MSAA/HDR/bloom), then --no-bloom, --msaa=1 or --no-hdr "
              "to isolate the feature your driver dislikes.");
-    FR_ERROR("The OpenGL version/renderer and any GL errors are logged above; "
+    DE_ERROR("The OpenGL version/renderer and any GL errors are logged above; "
              "screenshots/selftest.ppm shows what was rendered.");
     return 3;
 }
 
 int Engine::RunHeadless(AppConfig& config) {
-    FR_INFO("Headless mode: no window, no OpenGL. Validating world generation, time of day "
+    DE_INFO("Headless mode: no window, no OpenGL. Validating world generation, time of day "
             "and player simulation.");
     const std::string assets = ResolveAssetDirectory(config.assetsDir);
-    FR_INFO("Assets resolved to: %s", assets.c_str());
+    DE_INFO("Assets resolved to: %s", assets.c_str());
 
     world::World world;
     if (!world.Generate(config.world)) {
-        FR_ERROR("Headless world generation failed.");
+        DE_ERROR("Headless world generation failed.");
         return 2;
     }
 
@@ -1008,14 +1019,14 @@ int Engine::RunHeadless(AppConfig& config) {
         std::string source;
         std::string error;
         if (!render::ExpandShaderIncludes(path, source, error) || source.find("void main") == std::string::npos) {
-            FR_ERROR("Shader source check failed for %s: %s", path.c_str(),
+            DE_ERROR("Shader source check failed for %s: %s", path.c_str(),
                      error.empty() ? "no entry point found" : error.c_str());
             ++shaderFailures;
         } else {
             ++shadersExpanded;
         }
     }
-    FR_INFO("Shader sources expanded: %d/%d.", shadersExpanded,
+    DE_INFO("Shader sources expanded: %d/%d.", shadersExpanded,
             shadersExpanded + shaderFailures);
 
     // Scene round-trip: build a small scene, save it, load it back and compare.
@@ -1039,9 +1050,9 @@ int Engine::RunHeadless(AppConfig& config) {
         std::string error;
         scene::Scene loaded;
         if (!source.Save(path, error)) {
-            FR_ERROR("Scene save failed: %s", error.c_str());
+            DE_ERROR("Scene save failed: %s", error.c_str());
         } else if (!loaded.Load(path, error)) {
-            FR_ERROR("Scene load failed: %s", error.c_str());
+            DE_ERROR("Scene load failed: %s", error.c_str());
         } else {
             const scene::Entity* boxLoaded = loaded.Find(box);
             const scene::Entity* sphereLoaded = loaded.Find(sphere);
@@ -1054,7 +1065,7 @@ int Engine::RunHeadless(AppConfig& config) {
             const bool scriptMatches = sphereLoaded && sphereLoaded->script == "Spin" &&
                                        std::abs(sphereLoaded->Param("speed", 0.0f) - 90.0f) < 1e-3f;
             sceneRoundTrip = countMatches && valuesMatch && scriptMatches;
-            FR_INFO("Scene round-trip: %zu entities, hierarchy, values and scripts %s.",
+            DE_INFO("Scene round-trip: %zu entities, hierarchy, values and scripts %s.",
                     loaded.AliveCount(), sceneRoundTrip ? "preserved" : "MISMATCH");
         }
 
@@ -1080,17 +1091,17 @@ int Engine::RunHeadless(AppConfig& config) {
             const bool untouched = still && glm::length(still->rotation) < 1e-4f;
             if (!rotated || !untouched) {
                 sceneRoundTrip = false;
-                FR_ERROR("Script test failed: spin=%.2f idle=%.2f", spun ? spun->rotation.y : -1.0f,
+                DE_ERROR("Script test failed: spin=%.2f idle=%.2f", spun ? spun->rotation.y : -1.0f,
                          still ? still->rotation.y : -1.0f);
             } else {
-                FR_INFO("Script test: Spin advanced %.1f degrees over 1 s, idle entity unchanged.",
+                DE_INFO("Script test: Spin advanced %.1f degrees over 1 s, idle entity unchanged.",
                         spun->rotation.y);
             }
         }
         std::error_code ec;
         fs::remove(path, ec);
         if (!sceneRoundTrip) {
-            FR_ERROR("Smoke test failed: scene save/load did not round-trip.");
+            DE_ERROR("Smoke test failed: scene save/load did not round-trip.");
         }
     }
 
@@ -1107,9 +1118,9 @@ int Engine::RunHeadless(AppConfig& config) {
         std::string error;
         asset::AssetLibrary library;
         if (!asset::EnsurePlaceholderAssets(root, error)) {
-            FR_ERROR("Asset test failed: %s", error.c_str());
+            DE_ERROR("Asset test failed: %s", error.c_str());
         } else if (!library.Scan(root, error)) {
-            FR_ERROR("Asset test failed: %s", error.c_str());
+            DE_ERROR("Asset test failed: %s", error.c_str());
         } else {
             const asset::MeshAsset* character = library.FindMesh("character");
             const asset::TextureAsset* cloth = library.FindTexture("cloth");
@@ -1132,20 +1143,20 @@ int Engine::RunHeadless(AppConfig& config) {
                         objRoundTrip = reloaded.indices.size() == character->mesh.indices.size() &&
                                        reloaded.vertices.size() == character->mesh.vertices.size();
                     } else {
-                        FR_ERROR("OBJ reload failed: %s", readError.c_str());
+                        DE_ERROR("OBJ reload failed: %s", readError.c_str());
                     }
                 } else {
-                    FR_ERROR("OBJ write failed: %s", writeError.c_str());
+                    DE_ERROR("OBJ write failed: %s", writeError.c_str());
                 }
             }
 
             assetPipelineOk = modelsLoaded && texturesLoaded && objRoundTrip && objRoundTrip;
-            FR_INFO("Asset test: %zu models, %zu textures, OBJ round-trip %s.", library.Meshes().size(),
+            DE_INFO("Asset test: %zu models, %zu textures, OBJ round-trip %s.", library.Meshes().size(),
                     library.Textures().size(), objRoundTrip ? "ok" : "FAILED");
         }
         fs::remove_all(root, ec);
         if (!assetPipelineOk) {
-            FR_ERROR("Smoke test failed: the asset pipeline is broken.");
+            DE_ERROR("Smoke test failed: the asset pipeline is broken.");
         }
     }
 
@@ -1157,9 +1168,9 @@ int Engine::RunHeadless(AppConfig& config) {
         const std::string root = ResolveAssetDirectory(config.assetsDir);
         const bool scanned = shipped.Scan(root, error);
         if (!scanned && shipped.Failures() > 0) {
-            FR_WARN("Bundled assets reported a problem: %s", error.c_str());
+            DE_WARN("Bundled assets reported a problem: %s", error.c_str());
         }
-        FR_INFO("Bundled assets: %zu models, %zu textures in '%s'.", shipped.Meshes().size(),
+        DE_INFO("Bundled assets: %zu models, %zu textures in '%s'.", shipped.Meshes().size(),
                 shipped.Textures().size(), root.c_str());
     }
 
@@ -1181,10 +1192,10 @@ int Engine::RunHeadless(AppConfig& config) {
         const bool recentred =
             glm::length(rigPlayer.Camera().Position() - head) < 1e-3f;
         cameraRigOk = cameraRigOk && recentred;
-        FR_INFO("Camera rig: third person at %.1f m survives the ground, first person recentres.",
+        DE_INFO("Camera rig: third person at %.1f m survives the ground, first person recentres.",
                 separation);
         if (!cameraRigOk) {
-            FR_ERROR("Smoke test failed: the third-person camera rig is misplaced.");
+            DE_ERROR("Smoke test failed: the third-person camera rig is misplaced.");
         }
     }
 
@@ -1204,7 +1215,7 @@ int Engine::RunHeadless(AppConfig& config) {
         totalSimulated += dt;
 
         if ((frame + 1) % 60 == 0) {
-            FR_INFO("headless frame %d/%d: pos (%.1f, %.1f, %.1f), speed %.2f m/s, grounded=%d, "
+            DE_INFO("headless frame %d/%d: pos (%.1f, %.1f, %.1f), speed %.2f m/s, grounded=%d, "
                     "swimming=%d, time %.2f h, engine instances %d",
                     frame + 1, config.headlessFrames, player.Position().x, player.Position().y,
                     player.Position().z, player.HorizontalSpeed(), player.IsGrounded() ? 1 : 0,
@@ -1215,7 +1226,7 @@ int Engine::RunHeadless(AppConfig& config) {
 
     const float walkDistance = glm::length(vec2(player.Position().x - world.SpawnPoint().x,
                                                 player.Position().z - world.SpawnPoint().z));
-    FR_INFO("Headless simulation complete: %.2f s simulated, %d frames, walked %.1f m, "
+    DE_INFO("Headless simulation complete: %.2f s simulated, %d frames, walked %.1f m, "
             "final Y %.1f m.",
             totalSimulated, config.headlessFrames, walkDistance, player.Position().y);
     const long long terrainTriangles = static_cast<long long>(world.Terrain().Resolution()) *
@@ -1232,23 +1243,23 @@ int Engine::RunHeadless(AppConfig& config) {
     const bool moved = walkDistance > 0.5f;
     const bool timeAdvanced = world.Time().Hours() != startHours;
 
-    if (!spawnDry) { FR_ERROR("Smoke test failed: spawn point is underwater."); ok = false; }
-    if (!spawnInside) { FR_ERROR("Smoke test failed: spawn point is outside the map."); ok = false; }
-    if (!heightfieldComplete) { FR_ERROR("Smoke test failed: heightfield sample count mismatch."); ok = false; }
-    if (shaderFailures != 0) { FR_ERROR("Smoke test failed: shader assets could not be expanded."); ok = false; }
-    if (!sceneRoundTrip) { FR_ERROR("Smoke test failed: scene serialisation is broken."); ok = false; }
-    if (!assetPipelineOk) { FR_ERROR("Smoke test failed: asset import is broken."); ok = false; }
-    if (!cameraRigOk) { FR_ERROR("Smoke test failed: camera modes are broken."); ok = false; }
-    if (!moved) { FR_ERROR("Smoke test failed: player did not move forward."); ok = false; }
-    if (!timeAdvanced) { FR_ERROR("Smoke test failed: time of day did not advance."); ok = false; }
+    if (!spawnDry) { DE_ERROR("Smoke test failed: spawn point is underwater."); ok = false; }
+    if (!spawnInside) { DE_ERROR("Smoke test failed: spawn point is outside the map."); ok = false; }
+    if (!heightfieldComplete) { DE_ERROR("Smoke test failed: heightfield sample count mismatch."); ok = false; }
+    if (shaderFailures != 0) { DE_ERROR("Smoke test failed: shader assets could not be expanded."); ok = false; }
+    if (!sceneRoundTrip) { DE_ERROR("Smoke test failed: scene serialisation is broken."); ok = false; }
+    if (!assetPipelineOk) { DE_ERROR("Smoke test failed: asset import is broken."); ok = false; }
+    if (!cameraRigOk) { DE_ERROR("Smoke test failed: camera modes are broken."); ok = false; }
+    if (!moved) { DE_ERROR("Smoke test failed: player did not move forward."); ok = false; }
+    if (!timeAdvanced) { DE_ERROR("Smoke test failed: time of day did not advance."); ok = false; }
     if (!frustumFront || frustumBehind || frustumFar) {
-        FR_ERROR("Smoke test failed: frustum culling is inconsistent "
+        DE_ERROR("Smoke test failed: frustum culling is inconsistent "
                  "(front=%d behind=%d far=%d).",
                  frustumFront ? 1 : 0, frustumBehind ? 1 : 0, frustumFar ? 1 : 0);
         ok = false;
     }
     if (config.world.treeCount > 0 && world.Vegetation().Stats().totalInstances == 0) {
-        FR_ERROR("Smoke test failed: no vegetation was placed.");
+        DE_ERROR("Smoke test failed: no vegetation was placed.");
         ok = false;
     }
 
@@ -1278,28 +1289,28 @@ int Engine::RunHeadless(AppConfig& config) {
         const FrameReport blackReport = AnalyseFrame(black.data(), black.size(), kWidth, kHeight);
         const bool rejectsBlack = !(blackReport.meanLuma > 0.03);
 
-        FR_INFO("Self-test analysis: gradient mean %.3f/contrast %.3f, black frame mean %.3f.",
+        DE_INFO("Self-test analysis: gradient mean %.3f/contrast %.3f, black frame mean %.3f.",
                 gradientReport.meanLuma, gradientReport.stdDev, blackReport.meanLuma);
         if (!acceptsGradient || !rejectsBlack) {
-            FR_ERROR("Smoke test failed: --selftest image analysis misjudges synthetic frames.");
+            DE_ERROR("Smoke test failed: --selftest image analysis misjudges synthetic frames.");
             ok = false;
         }
     }
 
     const world::LightingState& lighting = world.Lighting();
-    FR_INFO("Lighting: sun elevation %.1f deg, daylight %.2f, stars %.2f, sun intensity %.2f.",
+    DE_INFO("Lighting: sun elevation %.1f deg, daylight %.2f, stars %.2f, sun intensity %.2f.",
             lighting.sun.elevationDegrees, lighting.daylight, lighting.stars, lighting.sun.intensity);
-    FR_INFO("Terrain: %lld triangles (CPU grid) | vegetation instances: %d | visible candidates: %d "
+    DE_INFO("Terrain: %lld triangles (CPU grid) | vegetation instances: %d | visible candidates: %d "
             "| culled: %d",
             terrainTriangles, world.Vegetation().Stats().totalInstances,
             world.Vegetation().Stats().visibleInstances, world.Vegetation().Stats().culledInstances);
     if (!ok) {
-        FR_ERROR("Headless validation failed.");
+        DE_ERROR("Headless validation failed.");
         return 3;
     }
-    FR_INFO("Headless validation succeeded (spawn, heightfield, movement, time, vegetation, "
+    DE_INFO("Headless validation succeeded (spawn, heightfield, movement, time, vegetation, "
             "scene, scripting, assets, cameras).");
     return 0;
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

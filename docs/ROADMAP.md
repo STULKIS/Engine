@@ -1,4 +1,4 @@
-# Frontier Engine — roadmap to a general purpose engine
+# Derecho Engine — roadmap to a general purpose engine
 
 This document is the plan for turning the current vertical slice (procedural
 world + renderer + FPS controller + debug panel) into an engine you can build
@@ -131,7 +131,7 @@ C# syntax, implemented in this repository.
 
 ```csharp
 // assets/scripts/PlayerController.fs
-using Frontier;
+using Derecho;
 
 class PlayerController : Script
 {

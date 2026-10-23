@@ -1,11 +1,11 @@
-// Frontier Engine - PNG/TGA codecs and the small inflate they need.
+// Derecho Engine - PNG/TGA codecs and the small inflate they need.
 #include "asset/Image.h"
 
 #include <algorithm>
 #include <cstring>
 #include <fstream>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 namespace {
 
@@ -867,4 +867,4 @@ bool LoadImage(const std::string& path, Image& out, std::string& error) {
     }
 }
 
-} // namespace frontier::asset
+} // namespace derecho::asset

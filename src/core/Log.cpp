@@ -6,7 +6,7 @@
 #include <ctime>
 #include <mutex>
 
-namespace frontier::core {
+namespace derecho::core {
 
 bool Log::s_initialized = false;
 
@@ -126,4 +126,4 @@ void Log::WriteV(LogLevel level, const char* file, int line, const char* fmt, va
     }
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

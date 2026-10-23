@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Frontier Engine shaders with glslangValidator.
+"""Validate Derecho Engine shaders with glslangValidator.
 
 The engine's shader loader supports `#include "path"` relative to the including
 file; glslang does not, so this script performs the same include expansion into
@@ -92,7 +92,7 @@ def main() -> int:
     ]
 
     failures = 0
-    with tempfile.TemporaryDirectory(prefix="frontier-shaders-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="derecho-shaders-") as tmp:
         tmpdir = pathlib.Path(tmp)
         for shader in shaders:
             stage = STAGES[shader.suffix]
@@ -122,7 +122,7 @@ def main() -> int:
 
     # Verify stage interfaces and uniforms link into complete programs.
     link_failures = 0
-    with tempfile.TemporaryDirectory(prefix="frontier-programs-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="derecho-programs-") as tmp:
         tmpdir = pathlib.Path(tmp)
         for vertex, fragment in program_pairs:
             try:

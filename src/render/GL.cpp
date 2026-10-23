@@ -2,29 +2,29 @@
 
 #include "core/Log.h"
 
-namespace frontier::render::gl {
+namespace derecho::render::gl {
 
-#define FRONTIER_GL_DEFINE(type, name) type name = nullptr;
-FRONTIER_GL_FUNCTIONS(FRONTIER_GL_DEFINE)
-#undef FRONTIER_GL_DEFINE
+#define DERECHO_GL_DEFINE(type, name) type name = nullptr;
+DERECHO_GL_FUNCTIONS(DERECHO_GL_DEFINE)
+#undef DERECHO_GL_DEFINE
 
 bool LoadFunctions(void* (*getProcAddress)(const char*)) {
     int missing = 0;
 
-#define FRONTIER_GL_LOAD(type, name)                                            \
+#define DERECHO_GL_LOAD(type, name)                                            \
     name = reinterpret_cast<type>(getProcAddress(#name));                       \
     if (!name) {                                                                \
-        FR_ERROR("OpenGL entry point missing: %s", #name);                      \
+        DE_ERROR("OpenGL entry point missing: %s", #name);                      \
         ++missing;                                                              \
     }
-    FRONTIER_GL_FUNCTIONS(FRONTIER_GL_LOAD)
-#undef FRONTIER_GL_LOAD
+    DERECHO_GL_FUNCTIONS(DERECHO_GL_LOAD)
+#undef DERECHO_GL_LOAD
 
     if (missing > 0) {
-        FR_ERROR("%d OpenGL 4.5 entry point(s) could not be resolved.", missing);
+        DE_ERROR("%d OpenGL 4.5 entry point(s) could not be resolved.", missing);
         return false;
     }
-    FR_INFO("Resolved all OpenGL 4.5 entry points through SDL_GL_GetProcAddress.");
+    DE_INFO("Resolved all OpenGL 4.5 entry points through SDL_GL_GetProcAddress.");
     return true;
 }
 
@@ -48,9 +48,9 @@ bool CheckErrors(const char* context) {
             break;
         }
         clean = false;
-        FR_WARN("OpenGL error in %s: %s (0x%04X)", context, ErrorString(err), static_cast<unsigned>(err));
+        DE_WARN("OpenGL error in %s: %s (0x%04X)", context, ErrorString(err), static_cast<unsigned>(err));
     }
     return clean;
 }
 
-} // namespace frontier::render::gl
+} // namespace derecho::render::gl

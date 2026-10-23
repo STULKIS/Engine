@@ -1,6 +1,6 @@
 #include "scene/Frustum.h"
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 void Frustum::Extract(const mat4& vp) {
     // Row vectors of the (column-major) matrix.
@@ -63,4 +63,4 @@ float Frustum::NearDistance(const vec3& point) const {
     return glm::dot(vec3(m_planes[4]), point) + m_planes[4].w;
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

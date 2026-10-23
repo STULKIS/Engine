@@ -1,4 +1,4 @@
-// Frontier Engine - components that run code on scene entities.
+// Derecho Engine - components that run code on scene entities.
 //
 // The shape is deliberately Unity-like: a script is attached to an entity by
 // name, receives OnStart once, then OnUpdate every frame, and can be tuned with
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 class Script {
 public:
@@ -82,4 +82,4 @@ private:
     bool m_reportedMissingType = false;
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

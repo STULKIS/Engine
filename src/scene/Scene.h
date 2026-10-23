@@ -1,4 +1,4 @@
-// Frontier Engine - the scene: entities, transforms and JSON persistence.
+// Derecho Engine - the scene: entities, transforms and JSON persistence.
 //
 // This is the first piece of the engine's data model. Everything that is not
 // the procedural world (props, markers, lights, and later characters and
@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 using EntityId = uint32_t;
 constexpr EntityId kInvalidEntity = 0;
@@ -89,4 +89,4 @@ private:
     std::string m_path = "scene.json";
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

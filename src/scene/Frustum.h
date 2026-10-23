@@ -1,9 +1,9 @@
-// Frontier Engine - view frustum extraction and culling primitives.
+// Derecho Engine - view frustum extraction and culling primitives.
 #pragma once
 
 #include "math/Math.h"
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 struct AABB {
     vec3 min = vec3(0.0f);
@@ -43,4 +43,4 @@ private:
     vec4 m_planes[6]{};
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

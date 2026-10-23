@@ -1,4 +1,4 @@
-// Frontier Engine - built-in scripts and the runtime host that drives them.
+// Derecho Engine - built-in scripts and the runtime host that drives them.
 #include "scene/Script.h"
 
 #include "core/Log.h"
@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 namespace {
 
@@ -200,7 +200,7 @@ void ScriptHost::Update(Scene& scene, float deltaSeconds) {
         const ScriptType* type = FindScriptType(entity.script);
         if (!type) {
             if (!m_reportedMissingType) {
-                FR_WARN("Unknown script '%s' on entity '%s'; ignoring it.",
+                DE_WARN("Unknown script '%s' on entity '%s'; ignoring it.",
                         entity.script.c_str(), entity.name.c_str());
                 m_reportedMissingType = true;
             }
@@ -235,4 +235,4 @@ void ScriptHost::Clear(Scene& scene) {
     m_reportedMissingType = false;
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

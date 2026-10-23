@@ -4,7 +4,7 @@
 
 #include <cstring>
 
-namespace frontier::core {
+namespace derecho::core {
 namespace {
 constexpr size_t kActionCount = static_cast<size_t>(Action::Count);
 }
@@ -34,7 +34,7 @@ bool Input::Initialize() {
     Bind(Action::ToggleCamera, SDL_SCANCODE_V);
     Bind(Action::Screenshot, SDL_SCANCODE_F12);
 
-    FR_INFO("Input initialized (relative mouse mode off).");
+    DE_INFO("Input initialized (relative mouse mode off).");
     return true;
 }
 
@@ -142,9 +142,9 @@ void Input::SetRelativeMouseMode(bool enabled) {
     }
     if (SDL_SetRelativeMouseMode(enabled ? SDL_TRUE : SDL_FALSE) == 0) {
         m_relativeMouse = enabled;
-        FR_DEBUG("Relative mouse mode %s", enabled ? "enabled" : "disabled");
+        DE_DEBUG("Relative mouse mode %s", enabled ? "enabled" : "disabled");
     } else {
-        FR_WARN("Could not set relative mouse mode: %s", SDL_GetError());
+        DE_WARN("Could not set relative mouse mode: %s", SDL_GetError());
     }
 }
 
@@ -182,4 +182,4 @@ std::string Input::DescribeBinding(Action action) const {
     return result;
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

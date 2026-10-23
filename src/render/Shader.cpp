@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace frontier::render {
+namespace derecho::render {
 namespace {
 
 // Resolves a shader include relative to the including file. Supports nesting
@@ -128,7 +128,7 @@ GLuint Shader::CompileStage(GLenum type, const std::string& source, const std::s
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
         std::vector<char> log(static_cast<size_t>(length > 1 ? length : 1));
         glGetShaderInfoLog(shader, length, nullptr, log.data());
-        FR_ERROR("[%s] %s shader compilation failed:\n%s", m_name.c_str(), stageName.c_str(), log.data());
+        DE_ERROR("[%s] %s shader compilation failed:\n%s", m_name.c_str(), stageName.c_str(), log.data());
         glDeleteShader(shader);
         return 0;
     }
@@ -142,11 +142,11 @@ bool Shader::LoadFromFiles(const std::string& vertexPath, const std::string& fra
     std::string vertexSource;
     std::string fragmentSource;
     if (!ExpandShaderIncludes(vertexPath, vertexSource, error) || vertexSource.empty()) {
-        FR_ERROR("[%s] Could not load vertex shader '%s': %s", debugName.c_str(), vertexPath.c_str(), error.c_str());
+        DE_ERROR("[%s] Could not load vertex shader '%s': %s", debugName.c_str(), vertexPath.c_str(), error.c_str());
         return false;
     }
     if (!ExpandShaderIncludes(fragmentPath, fragmentSource, error) || fragmentSource.empty()) {
-        FR_ERROR("[%s] Could not load fragment shader '%s': %s", debugName.c_str(), fragmentPath.c_str(), error.c_str());
+        DE_ERROR("[%s] Could not load fragment shader '%s': %s", debugName.c_str(), fragmentPath.c_str(), error.c_str());
         return false;
     }
     return LoadFromSource(vertexSource, fragmentSource, debugName);
@@ -181,13 +181,13 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
         std::vector<char> log(static_cast<size_t>(length > 1 ? length : 1));
         glGetProgramInfoLog(program, length, nullptr, log.data());
-        FR_ERROR("[%s] program link failed:\n%s", debugName.c_str(), log.data());
+        DE_ERROR("[%s] program link failed:\n%s", debugName.c_str(), log.data());
         glDeleteProgram(program);
         return false;
     }
 
     m_program = program;
-    FR_INFO("Shader program '%s' linked (id=%u).", debugName.c_str(), m_program);
+    DE_INFO("Shader program '%s' linked (id=%u).", debugName.c_str(), m_program);
     return true;
 }
 
@@ -252,4 +252,4 @@ void Shader::SetFloatArray(const char* name, const float* values, int count) {
     if (loc >= 0) glUniform1fv(loc, count, values);
 }
 
-} // namespace frontier::render
+} // namespace derecho::render

@@ -1,12 +1,12 @@
-// Frontier Engine - first-person character controller with terrain collision.
+// Derecho Engine - first-person character controller with terrain collision.
 #pragma once
 
 #include "scene/Camera.h"
 
-namespace frontier::core { class Input; }
-namespace frontier::scene { class Terrain; }
+namespace derecho::core { class Input; }
+namespace derecho::scene { class Terrain; }
 
-namespace frontier::game {
+namespace derecho::game {
 
 struct PlayerSettings {
     float eyeHeight = 1.72f;
@@ -72,4 +72,4 @@ private:
     float m_jumpCooldown = 0.0f;
 };
 
-} // namespace frontier::game
+} // namespace derecho::game

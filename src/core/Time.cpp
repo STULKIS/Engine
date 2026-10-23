@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <chrono>
 
-namespace frontier::core {
+namespace derecho::core {
 namespace {
 
 uint64_t NowTicks() {
@@ -77,4 +77,4 @@ int FixedStep::Consume(float deltaSeconds) {
     return steps;
 }
 
-} // namespace frontier::core
+} // namespace derecho::core

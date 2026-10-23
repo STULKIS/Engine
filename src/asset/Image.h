@@ -1,4 +1,4 @@
-// Frontier Engine - image import and export without external dependencies.
+// Derecho Engine - image import and export without external dependencies.
 //
 // PNG decoding needs an inflate implementation; rather than pulling in zlib or
 // stb, this file carries a small, straightforward one (fixed and dynamic
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 struct Image {
     int width = 0;
@@ -47,4 +47,4 @@ bool SaveTga(const Image& image, const std::string& path, std::string& error);
 bool ZlibInflate(const uint8_t* data, size_t size, std::vector<uint8_t>& out, std::string& error);
 void ZlibStore(const std::vector<uint8_t>& input, std::vector<uint8_t>& out);
 
-} // namespace frontier::asset
+} // namespace derecho::asset

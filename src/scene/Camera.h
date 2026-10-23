@@ -1,9 +1,9 @@
-// Frontier Engine - first-person camera.
+// Derecho Engine - first-person camera.
 #pragma once
 
 #include "math/Math.h"
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 class Camera {
 public:
@@ -56,4 +56,4 @@ private:
     vec3 m_bobOffset = vec3(0.0f);
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

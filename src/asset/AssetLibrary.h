@@ -1,4 +1,4 @@
-// Frontier Engine - the asset database.
+// Derecho Engine - the asset database.
 //
 // Scans a directory of models (*.obj) and textures (*.png, *.tga), loads them
 // once, and hands them out by name. The renderer uploads them on demand; the
@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 struct MeshAsset {
     std::string name; // stem of the file, e.g. "character"
@@ -49,4 +49,4 @@ private:
     int m_failures = 0;
 };
 
-} // namespace frontier::asset
+} // namespace derecho::asset

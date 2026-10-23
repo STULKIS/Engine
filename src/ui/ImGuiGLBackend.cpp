@@ -6,6 +6,6 @@
 #define IMGUI_IMPL_OPENGL_LOADER_CUSTOM
 
 #include "render/GL.h"
-using namespace frontier::render::gl;
+using namespace derecho::render::gl;
 
 #include "imgui_impl_opengl3.cpp"

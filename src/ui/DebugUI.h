@@ -1,16 +1,16 @@
-// Frontier Engine - ImGui debug / tuning panel.
+// Derecho Engine - ImGui debug / tuning panel.
 #pragma once
 
 #include "core/Config.h"
 #include "core/Time.h"
 #include "scene/Scene.h"
 
-namespace frontier::core { class Window; }
-namespace frontier::world { class World; }
-namespace frontier::game { class Player; }
-namespace frontier::render { class Renderer; }
+namespace derecho::core { class Window; }
+namespace derecho::world { class World; }
+namespace derecho::game { class Player; }
+namespace derecho::render { class Renderer; }
 
-namespace frontier::ui {
+namespace derecho::ui {
 
 struct DebugActions {
     bool regenerateWorld = false;
@@ -57,4 +57,4 @@ private:
     scene::EntityId m_selectedEntity = scene::kInvalidEntity;
 };
 
-} // namespace frontier::ui
+} // namespace derecho::ui

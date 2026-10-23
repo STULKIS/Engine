@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace frontier::scene {
+namespace derecho::scene {
 namespace {
 
 mat4 ComposeTransform(const vec3& position, float rotation, float scale) {
@@ -107,7 +107,7 @@ void Vegetation::Generate(const Terrain& terrain, const VegetationSettings& sett
     m_forceUpdate = true;
 
     if (!settings.enabled) {
-        FR_INFO("Vegetation generation disabled by configuration.");
+        DE_INFO("Vegetation generation disabled by configuration.");
         return;
     }
 
@@ -117,7 +117,7 @@ void Vegetation::Generate(const Terrain& terrain, const VegetationSettings& sett
 
     m_stats = {};
     RefreshStats();
-    FR_INFO("Vegetation placed: %d conifers, %d broadleaf, %d rocks, %d grass, %d shrubs.",
+    DE_INFO("Vegetation placed: %d conifers, %d broadleaf, %d rocks, %d grass, %d shrubs.",
             static_cast<int>(m_sets.size() > 0 ? m_sets[0].instances.size() : 0),
             static_cast<int>(m_sets.size() > 1 ? m_sets[1].instances.size() : 0),
             static_cast<int>(m_sets.size() > 2 ? m_sets[2].instances.size() : 0),
@@ -396,7 +396,7 @@ void Vegetation::BuildRenderResources() {
 
     m_forceUpdate = true;
     m_needsUpload = true;
-    FR_INFO("Vegetation render resources built.");
+    DE_INFO("Vegetation render resources built.");
 }
 
 void Vegetation::Update(const Camera& camera, const Frustum& frustum, const VegetationSettings& settings) {
@@ -483,4 +483,4 @@ void Vegetation::ReleaseRenderResources() {
     }
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

@@ -15,7 +15,7 @@
 #include <cstdio>
 #include <vector>
 
-namespace frontier::render {
+namespace derecho::render {
 namespace {
 
 using Clock = std::chrono::high_resolution_clock;
@@ -35,25 +35,25 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
     m_assetDirectory = assetDirectory;
 
     if (!LoadPrograms(assetDirectory)) {
-        FR_ERROR("Renderer initialization failed while loading shaders from '%s'.", assetDirectory.c_str());
+        DE_ERROR("Renderer initialization failed while loading shaders from '%s'.", assetDirectory.c_str());
         return false;
     }
     if (!CreateTextures()) {
-        FR_ERROR("Renderer initialization failed while creating procedural textures.");
+        DE_ERROR("Renderer initialization failed while creating procedural textures.");
         return false;
     }
     if (!CreatePrimitiveMeshes()) {
-        FR_ERROR("Renderer initialization failed while creating the primitive meshes.");
+        DE_ERROR("Renderer initialization failed while creating the primitive meshes.");
         return false;
     }
     if (!LoadAssets(assetDirectory)) {
-        FR_ERROR("Renderer initialization failed while loading assets from '%s'.",
+        DE_ERROR("Renderer initialization failed while loading assets from '%s'.",
                  assetDirectory.c_str());
         return false;
     }
 
     if (!CreateTargets(m_windowWidth, m_windowHeight)) {
-        FR_ERROR("Renderer initialization failed while creating render targets.");
+        DE_ERROR("Renderer initialization failed while creating render targets.");
         return false;
     }
 
@@ -100,7 +100,7 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
 
     gl::CheckErrors("renderer-init");
     m_ready = true;
-    FR_INFO("Renderer initialized: %dx%d output, %d MSAA, %s.",
+    DE_INFO("Renderer initialized: %dx%d output, %d MSAA, %s.",
             m_windowWidth, m_windowHeight, m_sceneTarget.Samples(), m_sceneTarget.Hdr() ? "HDR" : "LDR");
     return true;
 }
@@ -116,12 +116,12 @@ bool Renderer::CreateTargets(int width, int height) {
     }
 
     if (!m_bloom.Create(sceneWidth, sceneHeight)) {
-        FR_WARN("Bloom target creation failed; bloom will be disabled for this run.");
+        DE_WARN("Bloom target creation failed; bloom will be disabled for this run.");
     }
 
     m_shadowRequestedSize = m_config.shadowMapSize;
     if (!m_shadowMap.Create(m_config.shadowMapSize)) {
-        FR_WARN("Shadow map creation failed; shadows will be disabled for this run.");
+        DE_WARN("Shadow map creation failed; shadows will be disabled for this run.");
     }
     return true;
 }
@@ -136,19 +136,19 @@ bool Renderer::RecreateSceneTarget(int width, int height) {
 
     // Drivers differ in which multisampled / floating point combinations they
     // can render to. Degrade gracefully instead of ending up without a target.
-    FR_WARN("No %dx MSAA %s target at %dx%d; retrying without MSAA.", requestedSamples,
+    DE_WARN("No %dx MSAA %s target at %dx%d; retrying without MSAA.", requestedSamples,
             requestedHdr ? "HDR" : "LDR", width, height);
     if (requestedSamples > 1 && m_sceneTarget.Create(width, height, 1, requestedHdr)) {
-        FR_WARN("Using a single-sample scene target (MSAA unavailable).");
+        DE_WARN("Using a single-sample scene target (MSAA unavailable).");
         return true;
     }
     if (requestedHdr) {
-        FR_WARN("Retrying with an 8-bit LDR scene target (bloom will be reduced).");
+        DE_WARN("Retrying with an 8-bit LDR scene target (bloom will be reduced).");
         if (m_sceneTarget.Create(width, height, 1, false)) {
             return true;
         }
     }
-    FR_ERROR("Could not create any scene render target at %dx%d.", width, height);
+    DE_ERROR("Could not create any scene render target at %dx%d.", width, height);
     return false;
 }
 
@@ -202,10 +202,10 @@ bool Renderer::CreatePrimitiveMeshes() {
                    geometry::MakeCylinder(vec3(0.0f, -0.5f, 0.0f), vec3(0.0f, 0.5f, 0.0f),
                                           0.5f, 0.0f, 20, vec4(1.0f)));
     if (!ok) {
-        FR_ERROR("Could not create the built-in primitive meshes.");
+        DE_ERROR("Could not create the built-in primitive meshes.");
         return false;
     }
-    FR_INFO("Scene primitives ready: box, sphere, cylinder, cone.");
+    DE_INFO("Scene primitives ready: box, sphere, cylinder, cone.");
     return true;
 }
 
@@ -247,10 +247,10 @@ bool Renderer::LoadAssets(const std::string& assetDirectory) {
     std::string error;
     // Placeholder art is written once so a fresh checkout has something to show.
     if (!asset::EnsurePlaceholderAssets(assetDirectory, error)) {
-        FR_WARN("Could not write placeholder assets: %s", error.c_str());
+        DE_WARN("Could not write placeholder assets: %s", error.c_str());
     }
     if (!m_assets.Scan(assetDirectory, error) && !error.empty()) {
-        FR_WARN("Asset scan: %s", error.c_str());
+        DE_WARN("Asset scan: %s", error.c_str());
     }
 
     int uploadedMeshes = 0;
@@ -270,7 +270,7 @@ bool Renderer::LoadAssets(const std::string& assetDirectory) {
 
         Mesh gpu;
         if (!gpu.Create(data)) {
-            FR_WARN("Could not upload mesh '%s'.", source.name.c_str());
+            DE_WARN("Could not upload mesh '%s'.", source.name.c_str());
             continue;
         }
         m_assetMeshes.emplace(source.name, std::move(gpu));
@@ -284,7 +284,7 @@ bool Renderer::LoadAssets(const std::string& assetDirectory) {
         desc.repeat = true;
         Texture gpu;
         if (!gpu.CreateRGBA8(source.image.width, source.image.height, source.image.pixels, true, desc)) {
-            FR_WARN("Could not upload texture '%s'.", source.name.c_str());
+            DE_WARN("Could not upload texture '%s'.", source.name.c_str());
             continue;
         }
         gpu.SetName(source.name);
@@ -292,7 +292,22 @@ bool Renderer::LoadAssets(const std::string& assetDirectory) {
         ++uploadedTextures;
     }
 
-    FR_INFO("Asset pipeline: %d/%zu meshes and %d/%zu textures uploaded.", uploadedMeshes,
+    // Branding: the engine logo, shown in the About panel.
+    {
+        asset::Image logo;
+        if (asset::LoadImage(assetDirectory + "/branding/derecho-logo.png", logo, error)) {
+            TextureDesc desc;
+            desc.generateMips = true;
+            desc.repeat = false;
+            if (m_logoTexture.CreateRGBA8(logo.width, logo.height, logo.pixels, true, desc)) {
+                m_logoTexture.SetName("branding");
+            }
+        } else {
+            DE_WARN("Branding logo not loaded: %s", error.c_str());
+        }
+    }
+
+    DE_INFO("Asset pipeline: %d/%zu meshes and %d/%zu textures uploaded.", uploadedMeshes,
             m_assets.Meshes().size(), uploadedTextures, m_assets.Textures().size());
     return true;
 }
@@ -317,7 +332,7 @@ bool Renderer::CreateTextures() {
     m_grassTexture.SetName("procedural-grass");
     m_rockTexture.SetName("procedural-rock");
     m_soilTexture.SetName("procedural-soil");
-    FR_INFO("Generated procedural detail textures (%dx%d each).", kDetailSize, kDetailSize);
+    DE_INFO("Generated procedural detail textures (%dx%d each).", kDetailSize, kDetailSize);
     return true;
 }
 
@@ -329,6 +344,7 @@ void Renderer::Shutdown() {
     m_grassTexture.Destroy();
     m_rockTexture.Destroy();
     m_soilTexture.Destroy();
+    m_logoTexture.Destroy();
     for (Mesh& mesh : m_primitiveMeshes) {
         mesh.Destroy();
     }
@@ -379,7 +395,7 @@ void Renderer::UpdateTargets() {
         m_sceneRequestHdr = m_config.hdr;
         if (sizeChanged && !settingsChanged && m_sceneTarget.Valid()) {
             if (!m_sceneTarget.Resize(sceneWidth, sceneHeight)) {
-                FR_WARN("Scene target resize to %dx%d failed; recreating.", sceneWidth, sceneHeight);
+                DE_WARN("Scene target resize to %dx%d failed; recreating.", sceneWidth, sceneHeight);
                 RecreateSceneTarget(sceneWidth, sceneHeight);
             }
             m_bloom.Resize(sceneWidth, sceneHeight);
@@ -394,7 +410,7 @@ void Renderer::UpdateTargets() {
     if (m_shadowRequestedSize != m_config.shadowMapSize) {
         m_shadowRequestedSize = m_config.shadowMapSize;
         if (!m_shadowMap.Create(m_config.shadowMapSize)) {
-            FR_WARN("Shadow map creation failed at %d; shadows disabled.", m_config.shadowMapSize);
+            DE_WARN("Shadow map creation failed at %d; shadows disabled.", m_config.shadowMapSize);
         }
     }
 }
@@ -423,7 +439,7 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, scene::S
 
     UpdateTargets();
     if (!m_sceneTarget.Valid()) {
-        FR_ERROR("Scene target is not available; skipping frame rendering.");
+        DE_ERROR("Scene target is not available; skipping frame rendering.");
         return;
     }
     world.Vegetation().UploadVisible();
@@ -985,7 +1001,7 @@ bool Renderer::SaveScreenshot(const std::string& path) const {
 
     std::FILE* file = std::fopen(path.c_str(), "wb");
     if (!file) {
-        FR_ERROR("Could not open screenshot path '%s'.", path.c_str());
+        DE_ERROR("Could not open screenshot path '%s'.", path.c_str());
         return false;
     }
     std::fprintf(file, "P6\n%d %d\n255\n", width, height);
@@ -995,8 +1011,8 @@ bool Renderer::SaveScreenshot(const std::string& path) const {
                     static_cast<size_t>(width) * 3, file);
     }
     std::fclose(file);
-    FR_INFO("Screenshot saved to %s", path.c_str());
+    DE_INFO("Screenshot saved to %s", path.c_str());
     return true;
 }
 
-} // namespace frontier::render
+} // namespace derecho::render

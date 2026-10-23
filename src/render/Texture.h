@@ -1,4 +1,4 @@
-// Frontier Engine - 2D textures including procedural noise/detail generation.
+// Derecho Engine - 2D textures including procedural noise/detail generation.
 #pragma once
 
 #include "render/GL.h"
@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace frontier::render {
+namespace derecho::render {
 
 struct TextureDesc {
     GLenum internalFormat = GL_RGBA8;
@@ -76,4 +76,4 @@ std::vector<uint8_t> HeightToNormal(const std::vector<uint8_t>& height, int size
 std::vector<float> SkyGradientLUT(int width);
 
 } // namespace procedural
-} // namespace frontier::render
+} // namespace derecho::render

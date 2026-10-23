@@ -1,4 +1,4 @@
-// Frontier Engine entry point.
+// Derecho Engine entry point.
 //
 // Start-up is deliberately loud about failures: the engine is a console
 // application, but double-clicking the executable on Windows shows a console
@@ -91,25 +91,25 @@ void ReportFailure(const std::string& summary, const std::string& details, const
     }
     text += "\n\nTo see the output directly, run the executable from a terminal:\n"
             "  cd <this folder>\n"
-            "  .\\frontier.exe      (Windows)\n"
-            "  ./frontier          (Linux)\n"
+            "  .\\derecho.exe      (Windows)\n"
+            "  ./derecho          (Linux)\n"
             "\nUseful diagnostics:\n"
-            "  frontier.exe --selftest     render a frame and verify the result\n"
-            "  frontier.exe --safe-mode    disable MSAA, HDR and bloom\n"
-            "  frontier.exe --headless=60  no window/GPU smoke test\n";
+            "  derecho.exe --selftest     render a frame and verify the result\n"
+            "  derecho.exe --safe-mode    disable MSAA, HDR and bloom\n"
+            "  derecho.exe --headless=60  no window/GPU smoke test\n";
 
     std::fprintf(stderr, "\n%s\n", text.c_str());
     std::fflush(stderr);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Frontier Engine", text.c_str(), nullptr);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Derecho Engine", text.c_str(), nullptr);
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    frontier::core::AppConfig config;
+    derecho::core::AppConfig config;
 
     bool shouldExit = false;
-    if (!frontier::core::ParseCommandLine(argc, argv, config, shouldExit)) {
+    if (!derecho::core::ParseCommandLine(argc, argv, config, shouldExit)) {
         std::fprintf(stderr, "Invalid command line. Use --help for usage.\n");
         return 2;
     }
@@ -119,32 +119,32 @@ int main(int argc, char** argv) {
 
     config.logFile = ResolveLogPath(config.logFile);
 
-    frontier::core::LogLevel level = frontier::core::LogLevel::Info;
-    frontier::core::ParseLogLevel(config.logLevel, level);
-    frontier::core::Log::Init(config.logFile, level);
+    derecho::core::LogLevel level = derecho::core::LogLevel::Info;
+    derecho::core::ParseLogLevel(config.logLevel, level);
+    derecho::core::Log::Init(config.logFile, level);
 
-    FR_INFO("==============================================================");
-    FR_INFO(" Frontier Engine 0.1.0 - procedural outdoor sandbox");
-    FR_INFO("==============================================================");
+    DE_INFO("==============================================================");
+    DE_INFO(" Derecho Engine 0.1.0 - procedural outdoor sandbox");
+    DE_INFO("==============================================================");
 
     int exitCode = 1;
     try {
-        frontier::core::Engine engine;
+        derecho::core::Engine engine;
         exitCode = engine.Run(config);
     } catch (const std::exception& error) {
-        FR_ERROR("Unhandled exception: %s", error.what());
+        DE_ERROR("Unhandled exception: %s", error.what());
         exitCode = 4;
     } catch (...) {
-        FR_ERROR("Unhandled non-standard exception.");
+        DE_ERROR("Unhandled non-standard exception.");
         exitCode = 4;
     }
 
-    FR_INFO("Exit code: %d", exitCode);
+    DE_INFO("Exit code: %d", exitCode);
 
-    const std::string lastError = frontier::core::Log::LastError();
+    const std::string lastError = derecho::core::Log::LastError();
     const bool interactiveRun = !config.headless && !config.selftest && !config.glInfo;
     if (exitCode != 0 && interactiveRun) {
-        ReportFailure("Frontier Engine could not start (exit code " + std::to_string(exitCode) + ").",
+        ReportFailure("Derecho Engine could not start (exit code " + std::to_string(exitCode) + ").",
                       lastError, config.logFile);
         if (StdinIsInteractive()) {
             std::fprintf(stderr, "\nPress Enter to close this window...");
@@ -153,6 +153,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    frontier::core::Log::Shutdown();
+    derecho::core::Log::Shutdown();
     return exitCode;
 }

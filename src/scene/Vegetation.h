@@ -1,4 +1,4 @@
-// Frontier Engine - instanced procedural vegetation with wind, frustum culling
+// Derecho Engine - instanced procedural vegetation with wind, frustum culling
 // and distance LOD.
 #pragma once
 
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 class Terrain;
 
@@ -107,4 +107,4 @@ private:
     bool m_needsUpload = false;
 };
 
-} // namespace frontier::scene
+} // namespace derecho::scene

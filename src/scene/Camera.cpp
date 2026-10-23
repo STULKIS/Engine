@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 void Camera::SetPerspective(float fovYDegrees, float aspect, float nearPlane, float farPlane) {
     m_fovDegrees = fovYDegrees;
@@ -88,4 +88,4 @@ void Camera::UpdateBob(float deltaSeconds, float horizontalSpeed, float vertical
     m_bobOffset = Right() * lateral + vec3(0.0f, vertical + airborne, 0.0f);
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

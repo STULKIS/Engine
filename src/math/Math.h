@@ -1,4 +1,4 @@
-// Frontier Engine - math aliases and helpers built on GLM.
+// Derecho Engine - math aliases and helpers built on GLM.
 #pragma once
 
 // windows.h defines min()/max() as macros unless NOMINMAX is set before the
@@ -23,7 +23,7 @@
 #include <cmath>
 #include <limits>
 
-namespace frontier {
+namespace derecho {
 
 using glm::mat3;
 using glm::mat4;
@@ -108,4 +108,4 @@ inline float MoveTowards(float current, float target, float maxDelta) {
 
 inline bool NearlyEqual(float a, float b, float eps = 1e-4f) { return std::fabs(a - b) <= eps; }
 
-} // namespace frontier
+} // namespace derecho

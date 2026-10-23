@@ -1,4 +1,4 @@
-// Frontier Engine - procedural placeholder models and hand-painted textures.
+// Derecho Engine - procedural placeholder models and hand-painted textures.
 #include "asset/Placeholders.h"
 
 #include "asset/Image.h"
@@ -11,7 +11,7 @@
 
 #include <glm/gtc/constants.hpp>
 
-namespace frontier::asset {
+namespace derecho::asset {
 
 namespace {
 
@@ -345,7 +345,7 @@ bool WriteMesh(const fs::path& path, const MeshData& mesh, const std::string& na
     if (!SaveObj(path.string(), mesh, name, error)) {
         return false;
     }
-    FR_INFO("Placeholder model written: %s (%zu tris)", path.string().c_str(),
+    DE_INFO("Placeholder model written: %s (%zu tris)", path.string().c_str(),
             mesh.indices.size() / 3);
     return true;
 }
@@ -363,7 +363,7 @@ bool WriteTexture(const fs::path& path, const Image& image, const std::string& e
         error = errorLabel + ": " + error;
         return false;
     }
-    FR_INFO("Placeholder texture written: %s", path.string().c_str());
+    DE_INFO("Placeholder texture written: %s", path.string().c_str());
     return true;
 }
 
@@ -395,4 +395,4 @@ bool EnsurePlaceholderAssets(const std::string& root, std::string& error) {
     return true;
 }
 
-} // namespace frontier::asset
+} // namespace derecho::asset

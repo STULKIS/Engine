@@ -1,4 +1,4 @@
-// Frontier Engine - forward renderer: shadow pass, sky, terrain, instanced
+// Derecho Engine - forward renderer: shadow pass, sky, terrain, instanced
 // foliage, water, bloom and ACES tone mapping.
 #pragma once
 
@@ -15,10 +15,10 @@
 #include <unordered_map>
 #include <vector>
 
-namespace frontier::scene { class Camera; }
-namespace frontier::world { class World; }
+namespace derecho::scene { class Camera; }
+namespace derecho::world { class World; }
 
-namespace frontier::render {
+namespace derecho::render {
 
 struct RenderStats {
     int drawCalls = 0;
@@ -58,6 +58,8 @@ public:
     const RenderStats& Stats() const { return m_stats; }
     // Meshes and textures found on disk; the editor lists these.
     const asset::AssetLibrary& Assets() const { return m_assets; }
+    // GL handle of the branding logo (0 when it is unavailable).
+    unsigned int LogoTextureId() const { return m_logoTexture.Id(); }
     int OutputWidth() const { return m_windowWidth; }
     int OutputHeight() const { return m_windowHeight; }
     bool Ready() const { return m_ready; }
@@ -121,6 +123,7 @@ private:
     Texture m_grassTexture;
     Texture m_rockTexture;
     Texture m_soilTexture;
+    Texture m_logoTexture;
 
     Mesh m_fullscreenTriangle;
     // One mesh and one instance buffer per built-in primitive.
@@ -152,4 +155,4 @@ private:
     bool m_ready = false;
 };
 
-} // namespace frontier::render
+} // namespace derecho::render

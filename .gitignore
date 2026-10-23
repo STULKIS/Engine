@@ -23,9 +23,9 @@ cmake_install.cmake
 compile_commands.json
 
 # Runtime output
-frontier.log
-frontier-saved-config.ini
-frontier_imgui.ini
+derecho.log
+derecho-saved-config.ini
+derecho_imgui.ini
 imgui.ini
 screenshots/
 *.ppm

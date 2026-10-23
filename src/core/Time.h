@@ -1,9 +1,9 @@
-// Frontier Engine - clocks and frame timing.
+// Derecho Engine - clocks and frame timing.
 #pragma once
 
 #include <cstdint>
 
-namespace frontier::core {
+namespace derecho::core {
 
 // Monotonic high resolution clock. All deltas are in seconds.
 class Clock {
@@ -55,4 +55,4 @@ private:
     int m_maxSteps = 8;
 };
 
-} // namespace frontier::core
+} // namespace derecho::core

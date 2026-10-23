@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace frontier::scene {
+namespace derecho::scene {
 
 using core::JsonValue;
 
@@ -174,7 +174,7 @@ std::string Scene::UniqueName(const std::string& base) const {
 
 bool Scene::Save(const std::string& path, std::string& error) const {
     JsonValue root = JsonValue::MakeObject();
-    root["format"] = JsonValue("frontier.scene");
+    root["format"] = JsonValue("derecho.scene");
     root["version"] = JsonValue(1);
     root["nextEntityId"] = JsonValue(static_cast<int>(m_nextId));
 
@@ -221,7 +221,7 @@ bool Scene::Save(const std::string& path, std::string& error) const {
     if (!root.SaveToFile(path, error)) {
         return false;
     }
-    FR_INFO("Scene saved: %s (%zu entities).", path.c_str(), AliveCount());
+    DE_INFO("Scene saved: %s (%zu entities).", path.c_str(), AliveCount());
     return true;
 }
 
@@ -231,8 +231,10 @@ bool Scene::Load(const std::string& path, std::string& error) {
         return false;
     }
     const std::string format = root.GetString("format", "");
-    if (format != "frontier.scene") {
-        error = "'" + path + "' is not a Frontier scene file (format = '" + format + "')";
+    // Scenes written before the engine was renamed used "frontier.scene"; keep
+    // reading them so existing work is not stranded by a branding change.
+    if (format != "derecho.scene" && format != "frontier.scene") {
+        error = "'" + path + "' is not a Derecho scene file (format = '" + format + "')";
         return false;
     }
 
@@ -286,8 +288,8 @@ bool Scene::Load(const std::string& path, std::string& error) {
     m_nextId = std::max(m_nextId, static_cast<EntityId>(highest + 1));
     m_nextId = std::max(m_nextId, static_cast<EntityId>(root.GetInt("nextEntityId", 1)));
     SetPath(path);
-    FR_INFO("Scene loaded: %s (%zu entities).", path.c_str(), AliveCount());
+    DE_INFO("Scene loaded: %s (%zu entities).", path.c_str(), AliveCount());
     return true;
 }
 
-} // namespace frontier::scene
+} // namespace derecho::scene

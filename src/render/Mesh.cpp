@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace frontier::render {
+namespace derecho::render {
 
 void MeshData::RecomputeBounds() {
     if (vertices.empty()) {
@@ -79,7 +79,7 @@ void Mesh::SetupVertexLayout() {
 bool Mesh::Create(const MeshData& data, bool dynamic) {
     Destroy();
     if (data.vertices.empty() || data.indices.empty()) {
-        FR_WARN("Mesh::Create called with empty geometry.");
+        DE_WARN("Mesh::Create called with empty geometry.");
         return false;
     }
 
@@ -194,4 +194,4 @@ void Mesh::DrawInstanced(int instanceCount) const {
     glBindVertexArray(0);
 }
 
-} // namespace frontier::render
+} // namespace derecho::render

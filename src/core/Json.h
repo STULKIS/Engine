@@ -1,4 +1,4 @@
-// Frontier Engine - a small, dependency-free JSON value used for scene files.
+// Derecho Engine - a small, dependency-free JSON value used for scene files.
 //
 // Scene files are plain JSON so they can be read, diffed and edited by hand and
 // by other tools. This is intentionally a minimal implementation: objects keep
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace frontier::core {
+namespace derecho::core {
 
 class JsonValue {
 public:
@@ -76,4 +76,4 @@ private:
     std::vector<std::pair<std::string, JsonValue>> m_object;
 };
 
-} // namespace frontier::core
+} // namespace derecho::core
