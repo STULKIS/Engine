@@ -49,7 +49,8 @@ build\Release\frontier.exe
 
 The script configures with `-DFRONTIER_FETCH_SDL2=ON` (SDL 2.28.5 is downloaded
 and built), builds in Release, and copies `assets/` and `SDL2.dll` next to the
-executable. With the MinGW/Ninja generator the binary is `build\frontier.exe`.
+executable. Use `scripts\run_windows.bat` to launch it with the console window
+kept open (it prints the exit code and any error message). With the MinGW/Ninja generator the binary is `build\frontier.exe`.
 The manual equivalent is:
 
 ```bat
