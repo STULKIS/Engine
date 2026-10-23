@@ -54,8 +54,8 @@ struct RenderConfig {
     RenderStyle style = RenderStyle::Realistic;
     int celSteps = 3;                 // light bands in cel shading (2..8)
     bool outlines = true;             // silhouette outlines (anime only)
-    float outlineThickness = 1.6f;    // pixels
-    float outlineStrength = 0.9f;     // 0..1
+    float outlineThickness = 1.2f;    // pixels
+    float outlineStrength = 0.75f;     // 0..1
     float rimStrength = 0.45f;        // rim light contribution
     float saturation = 1.06f;         // colour grade
     int posterizeLevels = 0;          // 0 = off, else quantise the final image
@@ -98,6 +98,8 @@ struct AppConfig {
     bool selftest = false;   // render a few frames and inspect the pixels
     int selftestFrames = 45;
     bool glInfo = false;     // print the OpenGL/video environment and exit
+    std::string loadScene;   // --scene=<path>: load this scene at start
+    std::string saveScene;   // --save-scene[=<path>]: write the generated scene
     bool demoUI = false;
 };
 

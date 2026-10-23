@@ -4,6 +4,7 @@
 #include "core/Config.h"
 #include "core/Input.h"
 #include "core/Time.h"
+#include "scene/Scene.h"
 
 #include <memory>
 #include <string>
@@ -41,6 +42,11 @@ private:
     void RespawnPlayer();
     void TakeScreenshot();
 
+    // Scene: generated starter content, plus save/load.
+    void BuildDefaultScene();
+    void SaveScene(const std::string& path);
+    void LoadScene(const std::string& path);
+
     int RunHeadless(AppConfig& config);
     int RunSelfTest();
     int RunGLInfo(AppConfig& config);
@@ -50,6 +56,7 @@ private:
     std::unique_ptr<Input> m_input;
     std::unique_ptr<render::Renderer> m_renderer;
     std::unique_ptr<world::World> m_world;
+    scene::Scene m_entities;
     std::unique_ptr<game::Player> m_player;
     std::unique_ptr<ui::DebugUI> m_debugUI;
 

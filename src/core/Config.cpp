@@ -366,6 +366,8 @@ void PrintUsage(const char* exe) {
         "  --headless[=frames]    Render without a window (smoke test)\n"
         "  --selftest[=frames]    Open the window, render, verify the pixels, exit\n"
         "  --glinfo               Print the SDL/OpenGL environment and exit\n"
+        "  --scene=<path>         Load a scene file at start (default: generated scene)\n"
+        "  --save-scene[=<path>]  Write the generated scene to disk, then keep running\n"
         "  --demo-ui              Open the ImGui style demo on start\n"
         "  --help                 Print this help\n"
         "\n"
@@ -464,6 +466,11 @@ bool ParseCommandLine(int argc, char** argv, AppConfig& config, bool& shouldExit
         if (key == "no-fog") { ApplySetting(config, "render.fogdensity", "0", value); continue; }
         if (key == "wireframe") { ApplySetting(config, "render.wireframe", inferredValue(), value); continue; }
         if (key == "glinfo" || key == "gl-info") { config.glInfo = true; continue; }
+        if (key == "scene") { config.loadScene = Trim(inferredValue()); continue; }
+        if (key == "save-scene") {
+            config.saveScene = hasValue ? Trim(value) : std::string("scene.json");
+            continue;
+        }
         if (key == "selftest" || key == "self-test") {
             config.selftest = true;
             config.selftestFrames = hasValue ? std::max(5, std::atoi(value.c_str())) : 45;

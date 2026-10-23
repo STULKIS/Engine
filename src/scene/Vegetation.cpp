@@ -247,6 +247,7 @@ void Vegetation::GenerateGroundCover(const Terrain& terrain, const VegetationSet
 
     FoliageSet grass;
     grass.name = "Grass";
+    grass.inksOutline = false;
     grass.lodDistances = {32.0f, 78.0f, 135.0f};
     grass.castsShadow = false;
     grass.wind = true;
@@ -287,6 +288,7 @@ void Vegetation::GenerateGroundCover(const Terrain& terrain, const VegetationSet
     // Shrubs are cheaper than trees and break up the mid-ground.
     FoliageSet shrubs;
     shrubs.name = "Shrubs";
+    shrubs.inksOutline = false;
     shrubs.lodDistances = {55.0f, 120.0f, 220.0f};
     shrubs.castsShadow = true;
     shrubs.wind = true;

@@ -4,6 +4,7 @@
 #include "math/Math.h"
 #include "render/GeometryBuilder.h"
 #include "scene/Camera.h"
+#include "scene/Scene.h"
 #include "scene/Vegetation.h"
 #include "world/World.h"
 
@@ -38,6 +39,10 @@ bool Renderer::Initialize(const core::RenderConfig& config, const std::string& a
     }
     if (!CreateTextures()) {
         FR_ERROR("Renderer initialization failed while creating procedural textures.");
+        return false;
+    }
+    if (!CreatePrimitiveMeshes()) {
+        FR_ERROR("Renderer initialization failed while creating the primitive meshes.");
         return false;
     }
 
@@ -149,6 +154,7 @@ bool Renderer::LoadPrograms(const std::string& assetDirectory) {
         {&m_waterShader, "water.vert", "water.frag", "water"},
         {&m_shadowShader, "shadow.vert", "shadow.frag", "shadow"},
         {&m_shadowInstancedShader, "shadow_instanced.vert", "shadow.frag", "shadow-instanced"},
+        {&m_objectShader, "object.vert", "object.frag", "object"},
         {&m_bloomThresholdShader, "fullscreen.vert", "bloom_threshold.frag", "bloom-threshold"},
         {&m_bloomBlurShader, "fullscreen.vert", "bloom_blur.frag", "bloom-blur"},
         {&m_postShader, "fullscreen.vert", "post.frag", "post"},
@@ -161,6 +167,61 @@ bool Renderer::LoadPrograms(const std::string& assetDirectory) {
         }
     }
     return ok;
+}
+
+bool Renderer::CreatePrimitiveMeshes() {
+    const int primitiveCount = static_cast<int>(scene::Primitive::Count);
+    m_primitiveInstances.assign(static_cast<size_t>(primitiveCount), {});
+    m_primitiveDrawCounts.assign(static_cast<size_t>(primitiveCount), 0);
+
+    bool ok = true;
+    // Unit-sized shapes: the entity transform supplies position and scale.
+    ok = ok && m_primitiveMeshes[static_cast<int>(scene::Primitive::Box)].Create(
+                   geometry::MakeBox(vec3(0.5f), vec4(1.0f)));
+    ok = ok && m_primitiveMeshes[static_cast<int>(scene::Primitive::Sphere)].Create(
+                   geometry::MakeSphere(0.5f, 16, 24));
+    ok = ok && m_primitiveMeshes[static_cast<int>(scene::Primitive::Cylinder)].Create(
+                   geometry::MakeCylinder(vec3(0.0f, -0.5f, 0.0f), vec3(0.0f, 0.5f, 0.0f),
+                                          0.5f, 0.5f, 20, vec4(1.0f)));
+    ok = ok && m_primitiveMeshes[static_cast<int>(scene::Primitive::Cone)].Create(
+                   geometry::MakeCylinder(vec3(0.0f, -0.5f, 0.0f), vec3(0.0f, 0.5f, 0.0f),
+                                          0.5f, 0.0f, 20, vec4(1.0f)));
+    if (!ok) {
+        FR_ERROR("Could not create the built-in primitive meshes.");
+        return false;
+    }
+    FR_INFO("Scene primitives ready: box, sphere, cylinder, cone.");
+    return true;
+}
+
+void Renderer::BuildInstanceBuffers() {
+    for (auto& list : m_primitiveInstances) {
+        list.clear();
+    }
+    if (!m_frame.entities) {
+        return;
+    }
+    for (const scene::Entity& entity : m_frame.entities->Entities()) {
+        if (!entity.alive) {
+            continue;
+        }
+        const int index = static_cast<int>(entity.primitive);
+        if (index < 0 || index >= static_cast<int>(m_primitiveInstances.size())) {
+            continue;
+        }
+        InstanceData instance;
+        instance.transform = m_frame.entities->WorldMatrix(entity);
+        // Alpha is the wind phase: props do not sway, so keep it at 0.
+        instance.tint = vec4(entity.color, 0.0f);
+        m_primitiveInstances[static_cast<size_t>(index)].push_back(instance);
+    }
+    for (size_t i = 0; i < m_primitiveInstances.size(); ++i) {
+        auto& list = m_primitiveInstances[i];
+        m_primitiveDrawCounts[i] = static_cast<int>(list.size());
+        if (!list.empty()) {
+            m_primitiveMeshes[i].UploadInstances(list);
+        }
+    }
 }
 
 bool Renderer::CreateTextures() {
@@ -195,7 +256,11 @@ void Renderer::Shutdown() {
     m_grassTexture.Destroy();
     m_rockTexture.Destroy();
     m_soilTexture.Destroy();
+    for (Mesh& mesh : m_primitiveMeshes) {
+        mesh.Destroy();
+    }
     m_skyShader.Destroy();
+    m_objectShader.Destroy();
     m_terrainShader.Destroy();
     m_foliageShader.Destroy();
     m_waterShader.Destroy();
@@ -254,8 +319,8 @@ void Renderer::BindTexture(int unit, const Texture& texture) const {
     glBindTexture(GL_TEXTURE_2D, texture.Id());
 }
 
-void Renderer::Render(const scene::Camera& camera, world::World& world, const core::RenderConfig& config,
-                      float simulationTime) {
+void Renderer::Render(const scene::Camera& camera, world::World& world, scene::Scene& entities,
+                      const core::RenderConfig& config, float simulationTime) {
     if (!m_ready) {
         return;
     }
@@ -263,6 +328,7 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, const co
     m_stats = {};
     m_frame.camera = &camera;
     m_frame.world = &world;
+    m_frame.entities = &entities;
     m_frame.settings = config;
     m_frame.time = simulationTime;
     m_frame.view = camera.ViewMatrix();
@@ -276,6 +342,7 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, const co
         return;
     }
     world.Vegetation().UploadVisible();
+    BuildInstanceBuffers();
     m_stats.sceneWidth = m_sceneTarget.Width();
     m_stats.sceneHeight = m_sceneTarget.Height();
     m_stats.msaaSamples = m_sceneTarget.Samples();
@@ -321,6 +388,7 @@ void Renderer::Render(const scene::Camera& camera, world::World& world, const co
     if (config.showFoliage) {
         RenderFoliagePass();
     }
+    RenderObjectPass();
     if (config.showWater) {
         RenderWaterPass();
     }
@@ -442,6 +510,22 @@ void Renderer::RenderShadowPass() {
             }
         }
 
+        // Scene entities cast shadows too (skip the far cascade for tiny props).
+        if (m_frame.entities && !m_primitiveDrawCounts.empty()) {
+            m_shadowInstancedShader.SetMat4("uLightSpaceMatrix", lightSpace);
+            m_shadowInstancedShader.SetFloat("uTime", 0.0f);
+            m_shadowInstancedShader.SetFloat("uWindStrength", 0.0f);
+            for (size_t i = 0; i < m_primitiveDrawCounts.size(); ++i) {
+                const int count = m_primitiveDrawCounts[i];
+                if (count <= 0 || !m_primitiveMeshes[i].Valid()) {
+                    continue;
+                }
+                m_primitiveMeshes[i].DrawInstanced(count);
+                ++m_stats.shadowDrawCalls;
+                m_stats.shadowTriangles += m_primitiveMeshes[i].TriangleCount() * static_cast<size_t>(count);
+            }
+        }
+
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
     }
@@ -527,6 +611,7 @@ void Renderer::RenderFoliagePass() {
     glBindTexture(GL_TEXTURE_2D, m_shadowMap.Texture());
 
     for (const scene::FoliageSet& set : world->Vegetation().Sets()) {
+        m_foliageShader.SetFloat("uOutlineMask", set.inksOutline ? 0.0f : 1.0f);
         for (size_t lod = 0; lod < set.meshes.size(); ++lod) {
             if (lod >= set.visibleCounts.size()) {
                 continue;
@@ -542,6 +627,41 @@ void Renderer::RenderFoliagePass() {
     }
 
     glEnable(GL_CULL_FACE);
+}
+
+void Renderer::RenderObjectPass() {
+    if (!m_frame.entities || m_primitiveDrawCounts.empty()) {
+        return;
+    }
+    bool any = false;
+    for (const int count : m_primitiveDrawCounts) {
+        any = any || count > 0;
+    }
+    if (!any) {
+        return;
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glPolygonMode(GL_FRONT_AND_BACK, m_frame.settings.wireframe ? GL_LINE : GL_FILL);
+
+    m_objectShader.Bind();
+    m_objectShader.SetMat4("uViewProj", m_frame.viewProj);
+    SetAtmosphereUniforms(m_objectShader);
+    SetShadowUniforms(m_objectShader);
+
+    for (size_t i = 0; i < m_primitiveDrawCounts.size(); ++i) {
+        const int count = m_primitiveDrawCounts[i];
+        if (count <= 0 || !m_primitiveMeshes[i].Valid()) {
+            continue;
+        }
+        m_primitiveMeshes[i].DrawInstanced(count);
+        ++m_stats.drawCalls;
+        m_stats.triangles += m_primitiveMeshes[i].TriangleCount() * static_cast<size_t>(count);
+    }
 }
 
 void Renderer::RenderWaterPass() {

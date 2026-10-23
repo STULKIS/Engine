@@ -138,5 +138,5 @@ void main() {
     vec3 groundHaze = vec3(0.16, 0.18, 0.2) * (0.2 + uDaylight * 0.8);
     color = mix(color, groundHaze, below * 0.85);
 
-    oColor = vec4(color, 1.0);
+    oColor = vec4(color, 0.0); // outline-eligible
 }

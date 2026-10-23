@@ -37,6 +37,7 @@ uniform float uWarmEdge;
 // Stylised (NPR) shading controls. The realistic path ignores these.
 uniform int uCelShading;
 uniform float uTranslucency;
+uniform float uOutlineMask;   // 1 = never inked (grass, shrubs, far cards)
 uniform float uCelSteps;
 uniform float uRimStrength;
 uniform vec3 uRimColor;
@@ -71,5 +72,5 @@ void main() {
            (0.55 + 0.45 * saturate(dot(N, normalize(uCameraPos - vWorldPos)) * -1.0 + 1.0));
 
     lit = ApplyFog(lit, vWorldPos);
-    oColor = vec4(lit, 1.0);
+    oColor = vec4(lit, uOutlineMask);
 }

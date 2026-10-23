@@ -194,7 +194,7 @@ int Engine::Run(AppConfig& config) {
         // Build the debug UI for this frame.
         m_debugUI->NewFrame();
         ui::DebugActions actions;
-        m_debugUI->Draw(m_config, *m_world, *m_player, *m_renderer, m_frameStats, actions);
+        m_debugUI->Draw(m_config, *m_world, m_entities, *m_player, *m_renderer, m_frameStats, actions);
         ApplyActions(actions);
         if (!m_running) {
             break;
@@ -284,6 +284,16 @@ bool Engine::Initialize(AppConfig& config) {
     m_player->Camera().SetPerspective(config.game.fieldOfView, m_window->Aspect(), 0.1f,
                                       std::max(220.0f, config.render.viewDistance * 1.1f));
     m_input->SetRelativeMouseMode(true);
+
+    // Scene content: a small generated set of props around the spawn point,
+    // or a scene file supplied on the command line.
+    BuildDefaultScene();
+    if (!config.loadScene.empty()) {
+        LoadScene(config.loadScene);
+    }
+    if (!config.saveScene.empty()) {
+        SaveScene(config.saveScene);
+    }
 
     m_debugUI = std::make_unique<ui::DebugUI>();
     if (!m_debugUI->Initialize(*m_window, config.demoUI)) {
@@ -427,6 +437,12 @@ void Engine::Update(float deltaSeconds) {
         if (m_input->IsKeyDown(SDL_SCANCODE_RIGHTBRACKET)) {
             m_world->Time().SetHours(m_world->Time().Hours() + deltaSeconds * 2.0f);
         }
+        if (m_input->WasKeyPressed(SDL_SCANCODE_F8)) {
+            SaveScene(m_entities.Path());
+        }
+        if (m_input->WasKeyPressed(SDL_SCANCODE_F9)) {
+            LoadScene(m_entities.Path());
+        }
         if (m_input->WasKeyPressed(SDL_SCANCODE_G)) {
             m_config.world.seed += 1;
             m_world->Regenerate(m_config.world);
@@ -497,6 +513,12 @@ void Engine::ApplyActions(ui::DebugActions& actions) {
         m_input->SetRelativeMouseMode(capture);
         m_player->SetCaptured(capture);
     }
+    if (actions.saveScene) {
+        SaveScene(m_entities.Path());
+    }
+    if (actions.loadScene) {
+        LoadScene(m_entities.Path());
+    }
     if (actions.saveConfig) {
         const std::string path = "frontier-saved-config.ini";
         if (SaveConfigFile(path, m_config)) {
@@ -525,13 +547,75 @@ void Engine::RenderFrame() {
     if (!m_renderer || !m_world || !m_player) {
         return;
     }
-    m_renderer->Render(m_player->Camera(), *m_world, m_config.render,
+    m_renderer->Render(m_player->Camera(), *m_world, m_entities, m_config.render,
                        static_cast<float>(m_clock.TotalTime()));
 
     if (m_screenshotRequested) {
         m_screenshotRequested = false;
         TakeScreenshot();
     }
+}
+
+void Engine::BuildDefaultScene() {
+    m_entities.Clear();
+    m_entities.SetPath("scene.json");
+
+    const vec3 spawn = m_world->SpawnPoint();
+    const auto& terrain = m_world->Terrain();
+
+    // A ring of stone pillars marks the spawn point, and a marker cone sits above
+    // it. This is deliberately simple: it is starter content you can select,
+    // edit, delete, and save back to a scene file from the panel.
+    constexpr int kPillars = 8;
+    for (int i = 0; i < kPillars; ++i) {
+        const float angle = static_cast<float>(i) / static_cast<float>(kPillars) * kTwoPi;
+        const float x = spawn.x + std::cos(angle) * 9.0f;
+        const float z = spawn.z + std::sin(angle) * 9.0f;
+        const float ground = terrain.HeightAt(x, z);
+        const scene::EntityId id = m_entities.Create(m_entities.UniqueName("Pillar"),
+                                                     scene::Primitive::Cylinder,
+                                                     vec3(x, ground + 1.7f, z));
+        if (scene::Entity* entity = m_entities.Find(id)) {
+            entity->scale = vec3(0.8f, 3.4f, 0.8f);
+            entity->color = vec3(0.66f, 0.64f, 0.60f);
+        }
+    }
+
+    const scene::EntityId marker = m_entities.Create("Spawn marker", scene::Primitive::Cone,
+                                                     spawn + vec3(0.0f, 3.4f, 0.0f));
+    if (scene::Entity* entity = m_entities.Find(marker)) {
+        entity->scale = vec3(1.4f, 1.6f, 1.4f);
+        entity->color = vec3(0.92f, 0.55f, 0.25f);
+    }
+
+    const scene::EntityId orb = m_entities.Create("Orb", scene::Primitive::Sphere,
+                                                  spawn + vec3(0.0f, 5.4f, 0.0f));
+    if (scene::Entity* entity = m_entities.Find(orb)) {
+        entity->scale = vec3(0.9f);
+        entity->color = vec3(0.55f, 0.78f, 0.95f);
+    }
+
+    FR_INFO("Scene ready: %zu entities around the spawn point.", m_entities.AliveCount());
+}
+
+void Engine::SaveScene(const std::string& path) {
+    const std::string target = path.empty() ? "scene.json" : path;
+    std::string error;
+    if (m_entities.Save(target, error)) {
+        m_entities.SetPath(target);
+    } else {
+        FR_ERROR("Could not save the scene: %s", error.c_str());
+    }
+}
+
+void Engine::LoadScene(const std::string& path) {
+    const std::string source = path.empty() ? "scene.json" : path;
+    std::string error;
+    if (!m_entities.Load(source, error)) {
+        FR_ERROR("Could not load the scene: %s", error.c_str());
+        return;
+    }
+    m_entities.SetPath(source);
 }
 
 void Engine::TakeScreenshot() {
@@ -711,13 +795,13 @@ int Engine::RunSelfTest() {
         scene::Camera& camera = m_player->Camera();
         const scene::Frustum frustum = scene::Frustum::FromViewProjection(camera.ViewProjection());
         m_world->Update(kStep, camera, frustum, m_config.render);
-        m_renderer->Render(camera, *m_world, m_config.render, elapsed);
+        m_renderer->Render(camera, *m_world, m_entities, m_config.render, elapsed);
 
         // Exercise the debug overlay too: it compiles ImGui's own GLSL at the
         // first draw, which is a common source of driver-specific failures.
         m_debugUI->NewFrame();
         ui::DebugActions actions; // inspected but not applied
-        m_debugUI->Draw(m_config, *m_world, *m_player, *m_renderer, m_frameStats, actions);
+        m_debugUI->Draw(m_config, *m_world, m_entities, *m_player, *m_renderer, m_frameStats, actions);
         m_debugUI->Render();
 
         if (frame + 1 == frames) {
@@ -846,6 +930,48 @@ int Engine::RunHeadless(AppConfig& config) {
     FR_INFO("Shader sources expanded: %d/%d.", shadersExpanded,
             shadersExpanded + shaderFailures);
 
+    // Scene round-trip: build a small scene, save it, load it back and compare.
+    // This exercises the JSON writer, the parser, id remapping and the parent
+    // validation without needing a GPU.
+    bool sceneRoundTrip = false;
+    {
+        namespace fs = std::filesystem;
+        const std::string path = "scene-selftest.json";
+        scene::Scene source;
+        const scene::EntityId box = source.Create("Box A", scene::Primitive::Box, vec3(1.0f, 2.0f, 3.0f));
+        const scene::EntityId sphere = source.Create("Sphere B", scene::Primitive::Sphere, vec3(-4.0f, 0.5f, 8.0f));
+        if (scene::Entity* entity = source.Find(sphere)) {
+            entity->scale = vec3(1.5f, 2.0f, 0.5f);
+            entity->color = vec3(0.9f, 0.2f, 0.1f);
+            entity->parent = box;
+        }
+
+        std::string error;
+        scene::Scene loaded;
+        if (!source.Save(path, error)) {
+            FR_ERROR("Scene save failed: %s", error.c_str());
+        } else if (!loaded.Load(path, error)) {
+            FR_ERROR("Scene load failed: %s", error.c_str());
+        } else {
+            const scene::Entity* boxLoaded = loaded.Find(box);
+            const scene::Entity* sphereLoaded = loaded.Find(sphere);
+            const bool countMatches = loaded.AliveCount() == source.AliveCount();
+            const bool valuesMatch = boxLoaded && sphereLoaded &&
+                                     glm::length(boxLoaded->position - vec3(1.0f, 2.0f, 3.0f)) < 1e-4f &&
+                                     glm::length(sphereLoaded->scale - vec3(1.5f, 2.0f, 0.5f)) < 1e-4f &&
+                                     sphereLoaded->parent == box &&
+                                     sphereLoaded->primitive == scene::Primitive::Sphere;
+            sceneRoundTrip = countMatches && valuesMatch;
+            FR_INFO("Scene round-trip: %zu entities, hierarchy and values %s.",
+                    loaded.AliveCount(), sceneRoundTrip ? "preserved" : "MISMATCH");
+        }
+        std::error_code ec;
+        fs::remove(path, ec);
+        if (!sceneRoundTrip) {
+            FR_ERROR("Smoke test failed: scene save/load did not round-trip.");
+        }
+    }
+
     const float dt = 1.0f / 60.0f;
     const int jumpFrame = 20;
     const float startHours = world.Time().Hours();
@@ -894,6 +1020,7 @@ int Engine::RunHeadless(AppConfig& config) {
     if (!spawnInside) { FR_ERROR("Smoke test failed: spawn point is outside the map."); ok = false; }
     if (!heightfieldComplete) { FR_ERROR("Smoke test failed: heightfield sample count mismatch."); ok = false; }
     if (shaderFailures != 0) { FR_ERROR("Smoke test failed: shader assets could not be expanded."); ok = false; }
+    if (!sceneRoundTrip) { FR_ERROR("Smoke test failed: scene serialisation is broken."); ok = false; }
     if (!moved) { FR_ERROR("Smoke test failed: player did not move forward."); ok = false; }
     if (!timeAdvanced) { FR_ERROR("Smoke test failed: time of day did not advance."); ok = false; }
     if (!frustumFront || frustumBehind || frustumFar) {

@@ -98,21 +98,42 @@ float LinearEyeDepth(vec2 uv) {
            (uFarPlane + uNearPlane - ndc * (uFarPlane - uNearPlane));
 }
 
-// Silhouette detection from depth discontinuities. Comparing relative depth
-// jumps keeps the line width consistent from 1 m to 800 m, which is what makes
-// hand-drawn outlines look uniform.
+// Silhouette detection. A naive depth-gradient test inks every terrain crease
+// seen at a grazing angle, which is what made the first version draw outlines
+// over the whole frame. This test compares the *two sides* of each axis: a real
+// silhouette has one side much farther than the other, while a smooth slope has
+// a similar depth on both sides. The result is limited to genuine object
+// boundaries, faded out with distance, and masked per object (grass opts out).
 float SilhouetteEdge(vec2 uv) {
     vec2 texel = uInvResolution * max(uOutlineThickness, 0.5);
     float center = LinearEyeDepth(uv);
-    float edge = 0.0;
-    vec2 offsets[8] = vec2[8](
-        vec2( 1.0,  0.0), vec2(-1.0,  0.0), vec2( 0.0,  1.0), vec2( 0.0, -1.0),
-        vec2( 1.0,  1.0), vec2(-1.0,  1.0), vec2( 1.0, -1.0), vec2(-1.0, -1.0));
-    for (int i = 0; i < 8; ++i) {
-        float neighbour = LinearEyeDepth(uv + offsets[i] * texel);
-        float jump = (neighbour - center) / max(center, 0.35);
-        edge = max(edge, smoothstep(0.06, 0.14, jump));
+    if (center > uFarPlane * 0.9) {
+        return 0.0; // sky: the horizon is handled by the geometry silhouette
     }
+
+    float left = LinearEyeDepth(uv - vec2(texel.x, 0.0));
+    float right = LinearEyeDepth(uv + vec2(texel.x, 0.0));
+    float down = LinearEyeDepth(uv - vec2(0.0, texel.y));
+    float up = LinearEyeDepth(uv + vec2(0.0, texel.y));
+
+    const float kRatio = 1.14;
+    const float kSoftness = 0.12;
+    float across = abs(left - right) / max(min(left, right), 0.05);
+    float along = abs(up - down) / max(min(up, down), 0.05);
+    float edge = max(smoothstep(kRatio, kRatio + kSoftness, across),
+                     smoothstep(kRatio, kRatio + kSoftness, along));
+
+    // Grass, shrubs and other noisy geometry write 1.0 into the alpha channel;
+    // they are skipped so the frame does not fill with ink speckles.
+    float mask = max(max(texture(uSceneTexture, uv).a,
+                         texture(uSceneTexture, uv + vec2(texel.x, 0.0)).a),
+                     max(texture(uSceneTexture, uv - vec2(texel.x, 0.0)).a,
+                         max(texture(uSceneTexture, uv + vec2(0.0, texel.y)).a,
+                             texture(uSceneTexture, uv - vec2(0.0, texel.y)).a)));
+    edge *= 1.0 - smoothstep(0.35, 0.65, mask);
+
+    // Fade distant lines: ink on a 400 m ridge just reads as noise.
+    edge *= 1.0 - smoothstep(120.0, 320.0, center);
     return edge;
 }
 

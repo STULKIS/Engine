@@ -124,6 +124,7 @@ set(FRONTIER_SOURCES
     src/core/Config.cpp
     src/core/Engine.cpp
     src/core/Input.cpp
+    src/core/Json.cpp
     src/core/Log.cpp
     src/core/Noise.cpp
     src/core/Time.cpp
@@ -137,6 +138,7 @@ set(FRONTIER_SOURCES
     src/render/Shader.cpp
     src/render/Texture.cpp
     src/scene/Camera.cpp
+    src/scene/Scene.cpp
     src/scene/Frustum.cpp
     src/scene/Terrain.cpp
     src/scene/TimeOfDay.cpp

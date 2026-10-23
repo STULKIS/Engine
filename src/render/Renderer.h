@@ -8,6 +8,7 @@
 #include "render/Shader.h"
 #include "render/Texture.h"
 #include "scene/Frustum.h"
+#include "scene/Scene.h"
 
 #include <string>
 #include <vector>
@@ -46,8 +47,8 @@ public:
 
     // Window framebuffer size in pixels; the HDR target may be scaled.
     void Resize(int width, int height);
-    void Render(const scene::Camera& camera, world::World& world, const core::RenderConfig& config,
-                float simulationTime);
+    void Render(const scene::Camera& camera, world::World& world, scene::Scene& entities,
+                const core::RenderConfig& config, float simulationTime);
 
     // Saves the current back buffer as a binary PPM (no image library needed).
     bool SaveScreenshot(const std::string& path) const;
@@ -61,6 +62,7 @@ private:
     struct Frame {
         const scene::Camera* camera = nullptr;
         world::World* world = nullptr;
+        scene::Scene* entities = nullptr;
         core::RenderConfig settings;
         float time = 0.0f;
         mat4 viewProj{1.0f};
@@ -84,7 +86,11 @@ private:
     void RenderSkyPass();
     void RenderTerrainPass();
     void RenderFoliagePass();
+    void RenderObjectPass();
     void RenderWaterPass();
+    bool CreatePrimitiveMeshes();
+    // Groups scene entities by primitive into per-instance buffers.
+    void BuildInstanceBuffers();
     void RenderBloomPass();
     void RenderPostPass();
 
@@ -98,6 +104,7 @@ private:
     Shader m_waterShader;
     Shader m_shadowShader;
     Shader m_shadowInstancedShader;
+    Shader m_objectShader;
     Shader m_bloomThresholdShader;
     Shader m_bloomBlurShader;
     Shader m_postShader;
@@ -107,6 +114,10 @@ private:
     Texture m_soilTexture;
 
     Mesh m_fullscreenTriangle;
+    // One mesh and one instance buffer per built-in primitive.
+    Mesh m_primitiveMeshes[static_cast<int>(scene::Primitive::Count)];
+    std::vector<std::vector<InstanceData>> m_primitiveInstances;
+    std::vector<int> m_primitiveDrawCounts;
     SceneTarget m_sceneTarget;
     ShadowMap m_shadowMap;
     BloomChain m_bloom;

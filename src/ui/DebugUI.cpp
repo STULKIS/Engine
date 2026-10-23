@@ -76,9 +76,9 @@ void DebugUI::NewFrame() {
     ImGui::NewFrame();
 }
 
-void DebugUI::Draw(core::AppConfig& config, world::World& world, game::Player& player,
-                   render::Renderer& renderer, const core::FrameStats& frameStats,
-                   DebugActions& actions) {
+void DebugUI::Draw(core::AppConfig& config, world::World& world, scene::Scene& entities,
+                   game::Player& player, render::Renderer& renderer,
+                   const core::FrameStats& frameStats, DebugActions& actions) {
     if (!m_initialized) {
         return;
     }
@@ -90,6 +90,8 @@ void DebugUI::Draw(core::AppConfig& config, world::World& world, game::Player& p
             DrawOverview(config, world, player, renderer, frameStats, actions);
             ImGui::Separator();
             DrawWorldPanel(world, actions);
+            ImGui::Separator();
+            DrawScenePanel(config, entities, actions);
             ImGui::Separator();
             DrawRenderPanel(config, renderer);
             ImGui::Separator();
@@ -338,6 +340,81 @@ void DebugUI::DrawRenderPanel(core::AppConfig& config, render::Renderer& rendere
         if (ImGui::Combo("MSAA", &msaaIndex, msaaLabels, 4)) {
             config.render.msaaSamples = msaaIndex == 0 ? 1 : (msaaIndex == 1 ? 2 : (msaaIndex == 2 ? 4 : 8));
         }
+    }
+}
+
+void DebugUI::DrawScenePanel(core::AppConfig& config, scene::Scene& entities, DebugActions& actions) {
+    (void)config;
+    if (!ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen)) {
+        return;
+    }
+
+    ImGui::TextDisabled("%zu entities  ·  %s", entities.AliveCount(), entities.Path().c_str());
+    if (ImGui::Button("Save (F8)")) {
+        actions.saveScene = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reload (F9)")) {
+        actions.loadScene = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Add box")) {
+        const auto& camera = entities.Entities();
+        (void)camera;
+        entities.Create(entities.UniqueName("Box"), scene::Primitive::Box, vec3(0.0f, 2.0f, 0.0f));
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Add sphere")) {
+        entities.Create(entities.UniqueName("Sphere"), scene::Primitive::Sphere, vec3(0.0f, 2.0f, 0.0f));
+    }
+
+    ImGui::BeginChild("entity-list", ImVec2(0.0f, 132.0f), true);
+    for (const scene::Entity& entity : entities.Entities()) {
+        if (!entity.alive) {
+            continue;
+        }
+        ImGui::PushID(static_cast<int>(entity.id));
+        const bool selected = m_selectedEntity == entity.id;
+        if (ImGui::Selectable(entity.name.c_str(), selected)) {
+            m_selectedEntity = entity.id;
+        }
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+
+    scene::Entity* selected = entities.Find(m_selectedEntity);
+    if (!selected) {
+        ImGui::TextDisabled("Select an entity to edit it.");
+        return;
+    }
+
+    char nameBuffer[64];
+    std::snprintf(nameBuffer, sizeof(nameBuffer), "%s", selected->name.c_str());
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer))) {
+        selected->name = nameBuffer;
+    }
+
+    const char* primitiveLabels[] = {"Box", "Sphere", "Cylinder", "Cone"};
+    int primitiveIndex = static_cast<int>(selected->primitive);
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::Combo("Primitive", &primitiveIndex, primitiveLabels, 4)) {
+        selected->primitive = static_cast<scene::Primitive>(primitiveIndex);
+    }
+
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::DragFloat3("Position", &selected->position.x, 0.05f);
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::DragFloat3("Rotation", &selected->rotation.x, 0.5f);
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::DragFloat3("Scale", &selected->scale.x, 0.02f, 0.01f, 100.0f);
+    ImGui::SetNextItemWidth(220.0f);
+    ImGui::ColorEdit3("Colour", &selected->color.x);
+    ImGui::Checkbox("Cast shadow", &selected->castShadow);
+
+    if (ImGui::Button("Delete entity")) {
+        entities.Destroy(selected->id);
+        m_selectedEntity = scene::kInvalidEntity;
     }
 }
 

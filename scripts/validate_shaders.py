@@ -83,6 +83,7 @@ def main() -> int:
         ("water.vert", "water.frag"),
         ("shadow.vert", "shadow.frag"),
         ("shadow_instanced.vert", "shadow.frag"),
+        ("object.vert", "object.frag"),
         ("fullscreen.vert", "bloom_threshold.frag"),
         ("fullscreen.vert", "bloom_blur.frag"),
         ("fullscreen.vert", "post.frag"),

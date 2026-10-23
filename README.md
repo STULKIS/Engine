@@ -253,6 +253,22 @@ section of the debug panel to tune bands, outline width/strength, rim light and
 posterisation live. The anime path costs one extra full-screen pass and one
 depth resolve, so it is essentially free next to the terrain and foliage.
 
+### Scene model
+- Entities with a name, transform (position/rotation/scale), parent link, and a
+  **mesh renderer** using engine-generated primitives (box, sphere, cylinder,
+  cone) plus a colour and a cast-shadow flag.
+- Dense entity storage with stable ids, a 32-level parent chain guard against
+  cyclic hand-edited files, and unique auto-naming.
+- **Plain-JSON scene files** (`frontier.scene` v1): save with `F8`, reload with
+  `F9`, load at start with `--scene=<path>`, or write the generated starter
+  scene with `--save-scene[=<path>]`.
+- Scene entities are rendered with the same atmosphere, shadow and cel-shading
+  code as the terrain and foliage, cast shadows, and appear in the debug panel:
+  an outliner list plus an inspector (name, primitive, transform, colour,
+  shadow flag, delete).
+- Every run of `--headless` performs a scene save/load round-trip and fails if
+  entity count, hierarchy or values do not survive.
+
 ### World
 - 900 m × 900 m procedural heightfield (256² quads by default, configurable):
   rolling hills, masked ridged mountain ranges, a lake basin, a river valley,
@@ -461,6 +477,8 @@ Useful launch variants:
 | `--headless[=frames]` | 120 frames | simulate without a window/GPU |
 | `--selftest[=frames]` | 45 frames | render for real, check the framebuffer, exit 0/3 |
 | `--glinfo` | off | print the SDL video/display and OpenGL environment, then exit |
+| `--scene=<path>` | generated | load a scene file at start |
+| `--save-scene[=<path>]` | off | write the generated starter scene to disk |
 | `--demo-ui` | off | open the ImGui style demo |
 | `--help` | — | usage summary |
 
@@ -485,6 +503,8 @@ to the previous value. Numeric values are clamped to safe ranges.
 | `F5` | water toggle |
 | `F6` | pause/resume time of day |
 | `F7` | switch render style: realistic ↔ anime (NPR) |
+| `F8` | save the scene (`scene.json`) |
+| `F9` | reload the scene from disk |
 | `[` / `]` | scrub time backwards/forwards |
 | `R` | respawn at the shoreline spawn point |
 | `G` | regenerate the world with the next seed |
@@ -579,6 +599,7 @@ FrontierEngine/
 │   │   ├── Noise.*            # xorshift PRNG, value/gradient/fractal noise
 │   │   ├── Time.*             # monotonic clock, frame stats, fixed step
 │   │   └── Window.*           # SDL window + GL 4.5 core context
+│   ├── core/Json.*            # minimal JSON value/parser used by scene files
 │   ├── math/Math.h            # GLM aliases and small helpers
 │   ├── game/Player.*          # first-person controller and collision
 │   ├── render/
@@ -592,6 +613,7 @@ FrontierEngine/
 │   ├── scene/
 │   │   ├── Camera.*           # FPS camera, matrices, head bob
 │   │   ├── Frustum.*          # AABB/sphere culling
+│   │   ├── Scene.*            # entities, transforms, JSON save/load
 │   │   ├── Terrain.*          # heightfield, queries, spawn, GPU upload
 │   │   ├── Water.*            # tessellated lake surface
 │   │   ├── Vegetation.*       # placement, LODs, culling, instancing

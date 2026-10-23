@@ -91,5 +91,5 @@ void main() {
     lit *= 1.0 - slope * 0.18;
 
     lit = ApplyFog(lit, vWorldPos);
-    oColor = vec4(lit, 1.0);
+    oColor = vec4(lit, 0.0); // outline-eligible
 }

@@ -207,6 +207,45 @@ MeshData MakeRock(uint32_t seed, int subdivisions, float roughness) {
     return mesh;
 }
 
+MeshData MakeSphere(float radius, int rings, int segments, const vec4& color) {
+    MeshData mesh;
+    rings = std::clamp(rings, 3, 64);
+    segments = std::clamp(segments, 3, 96);
+    radius = std::max(radius, 0.0001f);
+
+    // Poles plus `rings - 1` interior latitudes.
+    for (int ring = 0; ring <= rings; ++ring) {
+        const float v = static_cast<float>(ring) / static_cast<float>(rings);
+        const float phi = v * kPi;
+        const float y = std::cos(phi);
+        const float r = std::sin(phi);
+        for (int segment = 0; segment <= segments; ++segment) {
+            const float u = static_cast<float>(segment) / static_cast<float>(segments);
+            const float theta = u * kTwoPi;
+            Vertex vertex;
+            vertex.position = vec3(std::cos(theta) * r, y, std::sin(theta) * r) * radius;
+            vertex.normal = SafeNormalize(vec3(std::cos(theta) * r, y, std::sin(theta) * r));
+            vertex.uv = vec2(u, v);
+            vertex.color = color;
+            mesh.vertices.push_back(vertex);
+        }
+    }
+
+    const int stride = segments + 1;
+    for (int ring = 0; ring < rings; ++ring) {
+        for (int segment = 0; segment < segments; ++segment) {
+            const uint32_t a = static_cast<uint32_t>(ring * stride + segment);
+            const uint32_t b = a + 1;
+            const uint32_t c = a + static_cast<uint32_t>(stride);
+            const uint32_t d = c + 1;
+            AddQuad(mesh, a, c, d, b);
+        }
+    }
+
+    mesh.RecomputeBounds();
+    return mesh;
+}
+
 MeshData MakeCylinder(const vec3& base, const vec3& tip, float baseRadius, float tipRadius,
                       int segments, const vec4& color) {
     MeshData mesh;

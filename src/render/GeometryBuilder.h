@@ -18,6 +18,9 @@ MeshData MakeTerrainGrid(int resolution, float size,
 // Simple unit cube (scaled by the caller's transform).
 MeshData MakeBox(const vec3& halfExtents, const vec4& color = vec4(1.0f));
 
+// UV sphere of the given radius, used by the scene primitives.
+MeshData MakeSphere(float radius, int rings, int segments, const vec4& color = vec4(1.0f));
+
 // Low-poly boulder: deformed icosphere with noise-driven displacement.
 MeshData MakeRock(uint32_t seed, int subdivisions, float roughness);
 

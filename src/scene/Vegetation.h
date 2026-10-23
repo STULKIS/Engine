@@ -34,6 +34,9 @@ public:
     std::vector<int> visibleCounts;
     bool castsShadow = true;
     bool wind = true;
+    // Grass and shrubs are excluded from ink outlines: their silhouettes are
+    // thousands of tiny edges, which reads as speckle noise rather than ink.
+    bool inksOutline = true;
     int visibleTotal = 0;
     int culledTotal = 0;
 
