@@ -16,6 +16,68 @@ Guiding rules:
 4. **The engine must stay fast on integrated graphics** (the reference target is
    a Ryzen 5 5600G / Vega 7 iGPU at 1080p).
 
+## Stylised rendering backlog (the WuWa / Genshin / PGR / HSR look)
+
+Researched from public breakdowns of how these games shade (HoyoToon, Genshin
+shader teardowns, Wuthering Waves material switches, UE5 anime-toon tools) and
+translated into work this engine can actually do. Status is honest: what is in
+the build today, what is next, and what needs character assets first.
+
+### In the build now
+
+| Feature | Where |
+| --- | --- |
+| Banded cel lighting with hard terminator | `common/lighting.glsl` `CelBand` |
+| Tinted shadow side (never black) | `uShadowTint` in `ApplySunlight` |
+| Warm band at the shadow edge ("coloured border") | `uWarmEdge` |
+| Quantised specular highlight | `ApplySunlight` cel path |
+| Rim light gated by lit side | `uRimStrength` / `uRimColor` |
+| Foliage translucency (backlit leaves) | `BacklightTerm` + `uTranslucency` |
+| Two-cascade shadows with rotated Poisson PCF | `ShadowMap`, `SampleShadow` |
+| Silhouette ink outlines from depth | `post.frag` `SilhouetteEdge` |
+| Painted sky: banded gradient, flat clouds, disc + ring | `sky.frag` |
+| Sun shafts (screen-space, sky-masked) | `post.frag` `GodRays` |
+| Stylised water: banded depth, hard foam line, glitter | `water.frag` |
+| Saturation-preserving tone curve | `post.frag` `NeutralToneMap` |
+| Posterisation, contrast, temperature, saturation | post grade |
+
+### Next (no new assets required)
+
+| Feature | Why it matters | Cost |
+| --- | --- | --- |
+| Screen-space rim light (depth-based) | Wide, uniform rims on silhouettes, the Hoyo/HSR signature | one full-screen pass |
+| Multi-mip bloom (5 levels, dual-filter) | Softer, wider glow instead of two blur passes | cheap |
+| Depth of field (CoC + bokeh) | Cinematic close-ups, used heavily in dialogue | 12–16 taps |
+| Volumetric fog with shadow-map sampling | Beams between trees, not just a screen-space smear | ~16 taps |
+| SSAO at half resolution | Grounds foliage and rocks | 1 half-res pass |
+| Triplanar terrain detail + macro variation | Removes tiling on cliffs | negligible |
+| Grass distance dithering + gust texture | Cheaper, more natural fields | negligible |
+| FXAA for `--quality=low` (MSAA off) | Jaggies are the first thing visible at 1x MSAA | 9 taps |
+| LUT-style colour grading asset | Artist control instead of four sliders | small |
+| Planar water reflections | Real skyline/tree reflections in the lake | one extra pass |
+
+### Needs character/mesh assets first (milestone 3)
+
+These are the features that make Genshin/WuWa *characters* look right; they are
+meaningless on terrain and trees:
+
+| Feature | Notes |
+| --- | --- |
+| SDF face shadow | Hand-authored 1D/2D shadow map swept by `dot(faceForward, lightDir)`; avoids the ugly nose shadow |
+| Hair "angel ring" highlight | Kajiya-Kay anisotropic band + a painted hair mask (HM texture) |
+| Two-tone ramp *texture* per material | Artists paint the ramp instead of using numeric bands |
+| Outline colour sampled from albedo | Line follows local colour (purple cloth → purple line) |
+| Inverted-hull outlines | Better than post outlines on characters; needs smoothed normals |
+| MatCap metal / eye layers | Requires per-material maps |
+| Ribbon/cloth secondary animation | Skirts, hair, straps |
+
+### Deliberately out of scope
+
+- Lumen/Nanite-style virtualised geometry: a different architectural class of
+  renderer, not a feature to bolt on.
+- Real-time ray tracing: the reference iGPU has no hardware support.
+- A C#/.NET runtime: see milestone 4 for the C#-shaped alternative.
+
 ## Milestones
 
 | # | Milestone | Ships | Status |
