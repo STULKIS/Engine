@@ -345,10 +345,15 @@ depth resolve, so it is essentially free next to the terrain and foliage.
   simulation on servers. It also expands every shader source (and its
   `#include`s) through the same loader the renderer uses, and fails with exit
   code 3 if any assertion — spawn, heightfield, movement, time, vegetation,
-  frustum culling or shader assets — does not hold.
+  frustum culling, shader assets, the scene round-trip, scripting, the asset
+  pipeline or the camera rig — does not hold.
 - `scripts/validate_shaders.py` expands the engine's `#include` convention and
   validates every shader stage/program with `glslangValidator`.
 - `scripts/build_no_cmake.sh` fallback build for environments without CMake.
+- `scripts/preview_models.py` rasterises `assets/models/*.obj` to a PNG without a
+  GPU, using a z-buffer and the engine's cel ramp; `docs/placeholder-assets.png`
+  in this repository was produced by it and shows the generated character,
+  crystal and boulder.
 - ImGui debug/tuning panel with live performance, world, render, player and
   controls pages.
 
