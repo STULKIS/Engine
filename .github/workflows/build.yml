@@ -10,18 +10,13 @@ permissions:
 
 jobs:
   linux:
-    name: Linux (GCC, system SDL2)
+    name: Linux (GCC, fetched SDL2)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install SDL2
-        run: |
-          sudo apt-get -o DPkg::Lock::Timeout=180 -o Acquire::Retries=3 update
-          sudo apt-get -o DPkg::Lock::Timeout=180 install -y --no-install-recommends libsdl2-dev
-
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure (fetches SDL2)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFRONTIER_FETCH_SDL2=ON
 
       - name: Build
         run: cmake --build build -j"$(nproc)"
@@ -53,17 +48,19 @@ jobs:
           cmake --build build --config Release --parallel 2>&1 | Tee-Object -FilePath build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Publish build log on failure
+      - name: Report compiler errors
         if: failure()
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if (Test-Path build.log) {
-            $body = Get-Content build.log -Raw
-            if ($body.Length -gt 60000) { $body = $body.Substring($body.Length - 60000) }
-            gh api --method POST "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" -f body=$body
+          if (-not (Test-Path build.log)) { Write-Host "no build log"; exit 0 }
+          $errors = Select-String -Path build.log -Pattern '(?i)error [A-Z]+[0-9]+|fatal error|error LNK[0-9]+'
+          $count = 0
+          foreach ($e in $errors) {
+            if ($count -ge 10) { break }
+            Write-Host "::error file=build::$($e.Line.Trim())"
+            $count++
           }
+          Write-Host "reported $count errors"
 
       - name: Headless smoke test
         run: .\build\Release\frontier.exe --headless=60
