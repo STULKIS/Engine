@@ -57,6 +57,12 @@ cmake -S . -B build -DFRONTIER_FETCH_SDL2=ON
 cmake --build build --config Release
 ```
 
+**No compiler on your machine?** Every push is built by GitHub Actions on
+Ubuntu and Windows. Open the **Actions** tab, pick the latest `build` run and
+download the `frontier-windows-x64` (or `frontier-linux-x64`) artifact, unzip it
+and run `frontier.exe` / `frontier`. The folder already contains `SDL2.dll` and
+`assets/`.
+
 ### Linux
 
 ```bash
@@ -118,13 +124,17 @@ with no GPU, no libGL and no display):
 | All 9 vertex/fragment program pairs link (`glslangValidator -l`) | **passes** |
 | SDL2 fetched and built by `FRONTIER_FETCH_SDL2=ON` | **passes** (SDL 2.28.5 built from source, binary runs) |
 | CMake presets (`linux-fetch`) configure/build/run | **passes** |
+| Windows build with MSVC 2022 + fetched SDL2 (`windows-latest`) | **passes** in GitHub Actions, including `--headless=60` |
+| Linux build with fetched SDL2 (`ubuntu-latest`) | **passes** in GitHub Actions, including `--headless=60` |
+| Ready-to-run CI artifacts | published by the workflow (`frontier-windows-x64`, `frontier-linux-x64`) |
 | Render target fallbacks (MSAA → 1x → LDR) | implemented defensively; the code paths are not reachable without a GL driver |
 | Windowed OpenGL start-up | **cannot be exercised here** — the container has no GL driver; the engine exits with a clear error instead of crashing |
 | Visual output / screenshots | not captured for the same reason |
 
-The rendering code (framebuffers, extension-free GL loader, instancing, shader
-uniforms) is therefore compile- and shader-validated, but has not been
-pixel-verified in this container. On a normal desktop the expected flow is
+The build is verified on three toolchains (GCC 12, MSVC 2022 via GitHub
+Actions, and the no-CMake fallback script). The rendering code (framebuffers,
+extension-free GL loader, instancing, shader uniforms) is compile- and
+shader-validated, but has not been pixel-verified in this container. On a normal desktop the expected flow is
 `cmake --build build && cd build && ./frontier`.
 
 Start-up is deliberately defensive: the engine prints the GL vendor, renderer,
