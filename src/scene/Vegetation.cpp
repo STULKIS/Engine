@@ -368,10 +368,12 @@ void Vegetation::BuildRenderResources() {
             mid.Create(render::geometry::MakeRock(meshSeed + 401u, 0, 0.6f));
             set.meshes.push_back(std::move(mid));
 
-            render::Mesh far;
-            far.Create(render::geometry::MakeCrossCard(1.6f, 1.1f, vec4(0.1f, 0.18f, 0.07f, 0.0f),
-                                                       vec4(0.22f, 0.34f, 0.12f, 0.4f)));
-            set.meshes.push_back(std::move(far));
+            // Note: "far" is a legacy Microsoft compiler keyword, so the
+            // variable is called farMesh like in the branch above.
+            render::Mesh farMesh;
+            farMesh.Create(render::geometry::MakeCrossCard(1.6f, 1.1f, vec4(0.1f, 0.18f, 0.07f, 0.0f),
+                                                          vec4(0.22f, 0.34f, 0.12f, 0.4f)));
+            set.meshes.push_back(std::move(farMesh));
         }
 
         set.visible.resize(set.meshes.size());
