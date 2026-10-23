@@ -811,6 +811,40 @@ int Engine::RunHeadless(AppConfig& config) {
         ok = false;
     }
 
+    // Validate the --selftest image checks themselves with synthetic frames, so
+    // a threshold mistake cannot make the GPU self-test report nonsense.
+    {
+        constexpr int kWidth = 64;
+        constexpr int kHeight = 64;
+        std::vector<unsigned char> gradient(static_cast<size_t>(kWidth) * kHeight * 3u);
+        for (int y = 0; y < kHeight; ++y) {
+            // glReadPixels rows are bottom-up: the upper rows are the sky.
+            const unsigned char value = y >= kHeight / 2 ? 210 : 40;
+            for (int x = 0; x < kWidth; ++x) {
+                unsigned char* pixel = &gradient[(static_cast<size_t>(y) * kWidth + x) * 3u];
+                pixel[0] = value;
+                pixel[1] = value;
+                pixel[2] = static_cast<unsigned char>(value / 2);
+            }
+        }
+        const FrameReport gradientReport = AnalyseFrame(gradient.data(), gradient.size(), kWidth, kHeight);
+        const bool acceptsGradient = gradientReport.samples > 0 &&
+                                     gradientReport.meanLuma > 0.03 && gradientReport.meanLuma < 0.97 &&
+                                     gradientReport.stdDev > 0.03 && gradientReport.blackFraction < 0.9 &&
+                                     std::fabs(gradientReport.topMean - gradientReport.bottomMean) > 0.02;
+
+        std::vector<unsigned char> black(static_cast<size_t>(kWidth) * kHeight * 3u, 0);
+        const FrameReport blackReport = AnalyseFrame(black.data(), black.size(), kWidth, kHeight);
+        const bool rejectsBlack = !(blackReport.meanLuma > 0.03);
+
+        FR_INFO("Self-test analysis: gradient mean %.3f/contrast %.3f, black frame mean %.3f.",
+                gradientReport.meanLuma, gradientReport.stdDev, blackReport.meanLuma);
+        if (!acceptsGradient || !rejectsBlack) {
+            FR_ERROR("Smoke test failed: --selftest image analysis misjudges synthetic frames.");
+            ok = false;
+        }
+    }
+
     const world::LightingState& lighting = world.Lighting();
     FR_INFO("Lighting: sun elevation %.1f deg, daylight %.2f, stars %.2f, sun intensity %.2f.",
             lighting.sun.elevationDegrees, lighting.daylight, lighting.stars, lighting.sun.intensity);

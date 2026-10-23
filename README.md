@@ -154,7 +154,7 @@ with no GPU, no libGL and no display):
 | Windows build with MSVC 2022 + fetched SDL2 (`windows-latest`) | **passes** in GitHub Actions, including `--headless=60` |
 | Linux build with fetched SDL2 (`ubuntu-latest`) | **passes** in GitHub Actions, including `--headless=60` |
 | Ready-to-run CI artifacts | published by the workflow (`frontier-windows-x64`, `frontier-linux-x64`) |
-| `--selftest` framebuffer checks | implemented; needs a real GL driver, so it cannot run in this container |
+| `--selftest` framebuffer checks | thresholds are unit-checked against synthetic frames in `--headless`; the GPU path needs a real driver, so it cannot run in this container |
 | Render target fallbacks (MSAA → 1x → LDR) | implemented defensively; the code paths are not reachable without a GL driver |
 | Windowed OpenGL start-up | **cannot be exercised here** — the container has no GL driver; the engine exits with a clear error instead of crashing |
 | Visual output / screenshots | not captured for the same reason |
